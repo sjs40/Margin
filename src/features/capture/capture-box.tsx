@@ -67,13 +67,13 @@ export function CaptureBox() {
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" className="min-h-11 px-3 md:h-8 md:min-h-8">
             <Link href="/camera">
               <Camera className="size-4" />
               Camera
             </Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" className="min-h-11 px-3 md:h-8 md:min-h-8">
             <Link href="/import">
               <Import className="size-4" />
               Import
@@ -90,7 +90,7 @@ export function CaptureBox() {
               Ctrl + Enter
             </span>
           )}
-          <Button onClick={() => void save()} disabled={pending || syncing || !value.trim()}>
+          <Button onClick={() => void save()} disabled={pending || syncing || !value.trim()} className="min-h-11 px-4 md:h-8 md:min-h-8">
             Save
           </Button>
         </div>

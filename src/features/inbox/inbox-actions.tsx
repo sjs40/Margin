@@ -14,7 +14,7 @@ export function InboxActions({ item }: { item: Item }) {
     <div className="mt-3 flex flex-wrap gap-2">
       {item.category === "suggested_theme" ? (
         <Button
-          size="sm"
+          className="min-h-11 md:h-8 md:min-h-8"
           onClick={async () => {
             await resolveInboxItem(item.id, "accept_theme", {
               name: String(item.payload.name ?? ""),
@@ -27,7 +27,7 @@ export function InboxActions({ item }: { item: Item }) {
       ) : null}
       {item.category === "ambiguous_entity" ? (
         <Button
-          size="sm"
+          className="min-h-11 md:h-8 md:min-h-8"
           variant="outline"
           onClick={async () => {
             await resolveInboxItem(item.id, "not_ticker");
@@ -38,7 +38,7 @@ export function InboxActions({ item }: { item: Item }) {
         </Button>
       ) : null}
       <Button
-        size="sm"
+        className="min-h-11 md:h-8 md:min-h-8"
         variant="ghost"
         onClick={async () => {
           await resolveInboxItem(item.id, "dismiss");

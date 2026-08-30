@@ -75,7 +75,7 @@ export function LoginForm() {
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="min-h-11 w-full" disabled={pending}>
         {mode === "magic" ? "Send magic link" : "Continue"}
       </Button>
       <button

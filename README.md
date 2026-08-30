@@ -28,6 +28,7 @@ Never commit `.env.local`.
 
 - `supabase/migrations/0001_init.sql`
 - `supabase/migrations/0002_match_embeddings.sql`
+- `supabase/migrations/0003_note_links.sql`
 
 Optional sample tickers: `supabase/seed.sql`.
 
@@ -64,4 +65,4 @@ Playwright (`npm run test:e2e`) checks the login gate. Authenticated capture flo
 
 Deploy to Vercel with the same environment variables. `vercel.json` schedules `GET /api/cron/nightly` with `Authorization: Bearer $CRON_SECRET`.
 
-Install the PWA from a mobile browser when prompted. Camera capture uses the browser file input with `capture="environment"`.
+On a phone, use Add to Home Screen (iOS Safari) or Install app (Chrome) from the browser menu. Camera capture uses the browser file input with `capture="environment"`. Paste a URL into the capture box with your comments; Margin extracts the link and fetches a title/excerpt when it can.

@@ -60,13 +60,14 @@ export function SearchClient() {
           className="h-12 text-base"
         />
         <div className="flex gap-2">
-          <Button type="submit" disabled={pending || !query.trim()}>
+          <Button type="submit" disabled={pending || !query.trim()} className="min-h-11 md:h-8 md:min-h-8">
             Search
           </Button>
           <Button
             type="button"
             variant="outline"
             disabled={pending || !query.trim()}
+            className="min-h-11 md:h-8 md:min-h-8"
             onClick={() => void run("ask")}
           >
             Ask Margin

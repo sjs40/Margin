@@ -2,7 +2,7 @@ import { CaptureBox } from "@/features/capture/capture-box";
 import { NoteFeed } from "@/features/notes/note-feed";
 import { createClient } from "@/lib/supabase/server";
 import { startOfDayIso } from "@/lib/dates";
-import type { Note } from "@/types/domain";
+import type { FeedNote } from "@/features/notes/note-feed";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -10,7 +10,7 @@ export default async function HomePage() {
   const { data } = auth.user
     ? await supabase
         .from("notes")
-        .select("*")
+        .select("*, note_links(url, title)")
         .eq("user_id", auth.user.id)
         .gte("captured_at", startOfDayIso())
         .order("captured_at", { ascending: false })
@@ -23,7 +23,7 @@ export default async function HomePage() {
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Today
         </h2>
-        <NoteFeed notes={(data ?? []) as Note[]} />
+        <NoteFeed notes={(data ?? []) as FeedNote[]} />
       </div>
     </div>
   );

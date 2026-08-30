@@ -15,14 +15,14 @@ export function endOfDayIso(date = new Date()): string {
 }
 
 export function formatCapturedAt(iso: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
 }
 
 export function formatLongDate(iso: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",

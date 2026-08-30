@@ -5,7 +5,7 @@ import { RefreshTodayButton } from "@/features/meta-notes/refresh-today-button";
 import { LooseEnds } from "@/features/research/loose-ends";
 import { startOfDayIso } from "@/lib/dates";
 import { dailyKey } from "@/lib/dates";
-import type { Note } from "@/types/domain";
+import type { FeedNote } from "@/features/notes/note-feed";
 
 export default async function TodayPage() {
   const supabase = await createClient();
@@ -16,7 +16,7 @@ export default async function TodayPage() {
     await Promise.all([
       supabase
         .from("notes")
-        .select("*")
+        .select("*, note_links(url, title)")
         .eq("user_id", auth.user.id)
         .gte("captured_at", startOfDayIso())
         .order("captured_at", { ascending: false }),
@@ -63,7 +63,7 @@ export default async function TodayPage() {
           <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Notes
           </h2>
-          <NoteFeed notes={(notes ?? []) as Note[]} />
+          <NoteFeed notes={(notes ?? []) as FeedNote[]} />
         </div>
       </div>
       <LooseEnds questions={questions ?? []} followups={followups ?? []} />
