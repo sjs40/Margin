@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/server";
+import { isAdminEmail } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -15,5 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .eq("status", "open");
     inboxCount = count ?? 0;
   }
-  return <AppShell inboxCount={inboxCount}>{children}</AppShell>;
+  return (
+    <AppShell inboxCount={inboxCount} email={data.user?.email} isAdmin={isAdminEmail(data.user?.email)}>
+      {children}
+    </AppShell>
+  );
 }

@@ -3,7 +3,6 @@ import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
 import { dailyKey, endOfDayIso, startOfDayIso } from "@/lib/dates";
 import { retrievalLimits } from "@/lib/env";
-import { isAiConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 function formatNote(note: {
@@ -46,7 +45,6 @@ async function writeMetaVersion(input: {
 }
 
 export async function upsertDailyMetaNote(userId: string, date = new Date()) {
-  if (!isAiConfigured()) return null;
   const supabase = createAdminClient();
   const day = dailyKey(date);
   const { data: notes } = await supabase
@@ -289,7 +287,6 @@ async function updateAffectedMemories(
 }
 
 export async function discoverAndInbox(userId: string) {
-  if (!isAiConfigured()) return;
   const supabase = createAdminClient();
   const { data: notes } = await supabase
     .from("notes")

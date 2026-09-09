@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
+import { getOptionalProvider } from "@/ai/modelRouter";
 import {
   hybridScore,
   lexicalScore,
@@ -105,26 +106,29 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
     });
   }
 
-  try {
-    const embedded = await ai.embed(query);
-    const { data: vectors } = await supabase.rpc("match_embeddings", {
-      query_embedding: embedded.values,
-      match_user_id: userId,
-      match_count: 20,
-    });
-    if (Array.isArray(vectors)) {
-      for (const row of vectors as Array<{
-        source_id: string;
-        source_type: string;
-        content: string;
-        similarity: number;
-      }>) {
-        const existing = hits.find((hit) => hit.id === row.source_id);
-        if (existing) existing.vectorScore = Math.max(existing.vectorScore, row.similarity);
+  const provider = getOptionalProvider();
+  if (provider) {
+    try {
+      const embedded = await ai.embed(query);
+      const { data: vectors } = await supabase.rpc("match_embeddings", {
+        query_embedding: embedded.values,
+        match_user_id: userId,
+        match_count: 20,
+      });
+      if (Array.isArray(vectors)) {
+        for (const row of vectors as Array<{
+          source_id: string;
+          source_type: string;
+          content: string;
+          similarity: number;
+        }>) {
+          const existing = hits.find((hit) => hit.id === row.source_id);
+          if (existing) existing.vectorScore = Math.max(existing.vectorScore, row.similarity);
+        }
       }
+    } catch {
+      // Vector search is optional; lexical/entity still work.
     }
-  } catch {
-    // Vector search is optional; lexical/entity still work.
   }
 
   return hits

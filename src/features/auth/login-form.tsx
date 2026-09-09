@@ -11,7 +11,7 @@ export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"password" | "magic">("password");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -22,25 +22,27 @@ export function LoginForm() {
     setError(null);
     setMessage(null);
     const supabase = createClient();
-    if (mode === "magic") {
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
+    if (mode === "signup") {
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
       setPending(false);
-      if (authError) setError(authError.message);
-      else setMessage("Check your email for a sign-in link.");
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+      setMessage("Account created. You can sign in now.");
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setMode("signin");
+        return;
+      }
+      router.replace("/");
+      router.refresh();
       return;
     }
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setPending(false);
     if (authError) {
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
-      if (signUpError) setError(signUpError.message);
-      else {
-        setMessage("Account created. If email confirmation is on, check your inbox.");
-        router.refresh();
-      }
+      setError(authError.message);
       return;
     }
     router.replace("/");
@@ -60,30 +62,33 @@ export function LoginForm() {
           onChange={(event) => setEmail(event.target.value)}
         />
       </div>
-      {mode === "password" ? (
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-      ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          required
+          minLength={6}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       <Button type="submit" className="min-h-11 w-full" disabled={pending}>
-        {mode === "magic" ? "Send magic link" : "Continue"}
+        {mode === "signup" ? "Create account" : "Sign in"}
       </Button>
       <button
         type="button"
         className="w-full text-center text-sm text-muted-foreground underline"
-        onClick={() => setMode(mode === "magic" ? "password" : "magic")}
+        onClick={() => {
+          setMode(mode === "signup" ? "signin" : "signup");
+          setError(null);
+          setMessage(null);
+        }}
       >
-        {mode === "magic" ? "Use password instead" : "Use a magic link instead"}
+        {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Create one"}
       </button>
     </form>
   );

@@ -37,6 +37,16 @@ export function SearchClient() {
     });
     const data = await response.json();
     setPending(false);
+    if (!response.ok) {
+      setAsk({
+        answer: {
+          answer: typeof data.error === "string" ? data.error : "Ask failed.",
+          sources: [],
+        },
+        hits: [],
+      });
+      return;
+    }
     if (mode === "ask") setAsk(data);
     else setHits(data.hits ?? []);
   }

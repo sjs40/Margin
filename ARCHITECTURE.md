@@ -35,7 +35,7 @@ Nightly synthesis (`/api/cron/nightly`) and the Today refresh button call the sa
 
 ## Auth
 
-Supabase Auth with `@supabase/ssr`. `src/proxy.ts` refreshes cookies and redirects anonymous users to `/login`. Row Level Security scopes user-owned rows by `user_id = auth.uid()`. Entity records are a shared ticker universe readable by authenticated users; writes happen through the service-role pipeline.
+Supabase Auth with `@supabase/ssr`. `src/proxy.ts` refreshes cookies and redirects anonymous users to `/login`. Row Level Security scopes user-owned rows by `user_id = auth.uid()`. Entity records are a shared ticker universe readable by authenticated users; writes happen through the service-role pipeline. Each user can store an encrypted Gemini key. The operator account (`ADMIN_EMAIL`) can toggle a hosted trial of five AI actions per day.
 
 ## Failure rule
 

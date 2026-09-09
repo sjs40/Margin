@@ -4,6 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Camera, Inbox, Library, Search, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOut } from "@/features/capture/actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ITEMS = [
   { href: "/", label: "Capture", icon: SquarePen },
@@ -16,9 +24,13 @@ const ITEMS = [
 export function AppShell({
   children,
   inboxCount = 0,
+  email,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   inboxCount?: number;
+  email?: string | null;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const cameraActive = pathname.startsWith("/camera");
@@ -30,17 +42,18 @@ export function AppShell({
           <Link href="/" className="font-sans text-sm font-semibold tracking-[0.22em] uppercase">
             Margin
           </Link>
-          <Link
-            href="/camera"
-            className={cn(
-              "inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm md:hidden",
-              cameraActive && "bg-secondary text-foreground",
-            )}
-          >
-            <Camera className="size-4" />
-            Camera
-          </Link>
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+          <div className="flex items-center gap-1">
+            <Link
+              href="/camera"
+              className={cn(
+                "inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm md:hidden",
+                cameraActive && "bg-secondary text-foreground",
+              )}
+            >
+              <Camera className="size-4" />
+              Camera
+            </Link>
+            <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
             {ITEMS.map((item) => {
               const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
@@ -67,6 +80,33 @@ export function AppShell({
               Camera
             </Link>
           </nav>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="ml-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+                Account
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {email ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">{email}</p>
+                ) : null}
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">Settings</Link>
+                </DropdownMenuItem>
+                {isAdmin ? (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">Admin</Link>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void signOut();
+                  }}
+                >
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:pb-10">{children}</main>

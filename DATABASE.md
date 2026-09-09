@@ -1,12 +1,15 @@
 # Database
 
-Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows even though V0.1 is single-user.
+Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 
 ## Tables
 
 | Table | Role |
 | --- | --- |
 | `users` | Mirror of `auth.users` |
+| `user_ai_keys` | Encrypted per-user Gemini keys (service-role only) |
+| `app_settings` | Hosted-AI flag and daily limit |
+| `ai_daily_usage` | Hosted trial action counts per user per UTC day |
 | `notes` | Captures. `original_raw_text` is immutable after insert; `raw_text` may be edited |
 | `source_assets` | Handwritten images (and future audio/attachments) |
 | `documents` | Long-form and AI imports |
@@ -30,7 +33,7 @@ Handwriting stores `literal_transcription` and `uncertain_segments` on `notes` s
 
 ## RLS
 
-Owner policies use `user_id = auth.uid()` (or a join to the owning note/document). `entities` are readable by authenticated users. Storage bucket `source-assets` is private; objects live under `{user_id}/...`.
+Owner policies use `user_id = auth.uid()` (or a join to the owning note/document). `entities` are readable by authenticated users. `user_ai_keys` has RLS enabled with no authenticated policies, so only the service role can read encrypted keys. Storage bucket `source-assets` is private; objects live under `{user_id}/...`.
 
 ## Retrieval RPC
 

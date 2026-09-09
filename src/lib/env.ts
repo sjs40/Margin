@@ -27,6 +27,16 @@ export function isAiConfigured(): boolean {
   return Boolean(read("GEMINI_API_KEY"));
 }
 
+export function adminEmail(): string {
+  return read("ADMIN_EMAIL").trim().toLowerCase();
+}
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  const admin = adminEmail();
+  if (!admin || !email) return false;
+  return email.trim().toLowerCase() === admin;
+}
+
 export function appUrl(): string {
   return read("APP_URL", "http://localhost:3000");
 }

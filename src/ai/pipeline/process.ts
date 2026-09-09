@@ -8,7 +8,7 @@ import { normalizeThemeName, pickExistingTheme } from "@/lib/theme-resolution";
 import { lookupTicker } from "@/lib/tickers";
 import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
-import { isAiConfigured } from "@/lib/env";
+import { withUserAi } from "@/lib/ai-credentials";
 import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
 import { prepareNoteLinks } from "@/features/links/sync";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
@@ -241,14 +241,7 @@ async function upsertEmbedding(
 }
 
 export async function processTextNote(noteId: string) {
-  const links = await prepareNoteLinks(noteId);
-  if (!isAiConfigured()) {
-    logger.warn("ai_skipped_unconfigured", { objectId: noteId });
-    revalidatePath("/");
-    revalidatePath("/today");
-    revalidatePath(`/notes/${noteId}`);
-    return;
-  }
+  await prepareNoteLinks(noteId);
   const supabase = createAdminClient();
   const { data: note, error } = await supabase
     .from("notes")
@@ -257,6 +250,22 @@ export async function processTextNote(noteId: string) {
     .single();
   if (error || !note) return;
 
+  const bound = await withUserAi(note.user_id, { consume: true }, async () => {
+    await processTextNoteBound(supabase, note, noteId);
+  });
+  if (!bound.ok) {
+    logger.warn("ai_skipped_unconfigured", { objectId: noteId, reason: bound.reason });
+    revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath(`/notes/${noteId}`);
+  }
+}
+
+async function processTextNoteBound(
+  supabase: Admin,
+  note: { user_id: string; raw_text: string | null },
+  noteId: string,
+) {
   await supabase.from("notes").update({ processing_status: "processing" }).eq("id", noteId);
   const jobId = await startJob({
     userId: note.user_id,
@@ -338,7 +347,6 @@ export async function processTextNote(noteId: string) {
 }
 
 export async function processHandwrittenNote(noteId: string) {
-  if (!isAiConfigured()) return;
   const supabase = createAdminClient();
   const { data: note } = await supabase.from("notes").select("*").eq("id", noteId).single();
   if (!note?.source_asset_id) return;
@@ -349,6 +357,20 @@ export async function processHandwrittenNote(noteId: string) {
     .single();
   if (!asset) return;
 
+  const bound = await withUserAi(note.user_id, { consume: true }, async () => {
+    await processHandwrittenNoteBound(supabase, note, asset, noteId);
+  });
+  if (!bound.ok) {
+    logger.warn("ai_skipped_unconfigured", { objectId: noteId, reason: bound.reason });
+  }
+}
+
+async function processHandwrittenNoteBound(
+  supabase: Admin,
+  note: { user_id: string; source_asset_id: string },
+  asset: { storage_path: string; mime_type: string | null },
+  noteId: string,
+) {
   await supabase.from("notes").update({ processing_status: "processing" }).eq("id", noteId);
   const jobId = await startJob({
     userId: note.user_id,
@@ -417,7 +439,6 @@ export async function processHandwrittenNote(noteId: string) {
 }
 
 export async function processDocument(documentId: string) {
-  if (!isAiConfigured()) return;
   const supabase = createAdminClient();
   const { data: document } = await supabase
     .from("documents")
@@ -425,6 +446,20 @@ export async function processDocument(documentId: string) {
     .eq("id", documentId)
     .single();
   if (!document) return;
+
+  const bound = await withUserAi(document.user_id, { consume: true }, async () => {
+    await processDocumentBound(supabase, document, documentId);
+  });
+  if (!bound.ok) {
+    logger.warn("ai_skipped_unconfigured", { objectId: documentId, reason: bound.reason });
+  }
+}
+
+async function processDocumentBound(
+  supabase: Admin,
+  document: { user_id: string; raw_content: string },
+  documentId: string,
+) {
   await supabase
     .from("documents")
     .update({ processing_status: "processing" })

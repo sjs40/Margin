@@ -2,10 +2,12 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { processDocument, processHandwrittenNote, processTextNote } from "@/ai/pipeline/process";
 import { upsertDailyMetaNote } from "@/ai/pipeline/memory";
 import { parseImportedMarkdown } from "@/lib/importer";
+import { withUserAi } from "@/lib/ai-credentials";
 
 export async function createTextNote(rawText: string, sourceType: "typed" | "dictated" | "longform" = "typed") {
   const text = rawText.trim();
@@ -141,7 +143,7 @@ export async function importResearchDocument(raw: string) {
 export async function refreshToday() {
   const { user } = await requireUser();
   after(async () => {
-    await upsertDailyMetaNote(user.id, new Date());
+    await withUserAi(user.id, { consume: true }, () => upsertDailyMetaNote(user.id, new Date()));
   });
   revalidatePath("/today");
   return { ok: true };
@@ -193,4 +195,5 @@ export async function resolveInboxItem(
 export async function signOut() {
   const { supabase } = await requireUser();
   await supabase.auth.signOut();
+  redirect("/login");
 }

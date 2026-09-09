@@ -9,6 +9,9 @@ function sanitize(fields: LogFields): LogFields {
     "content",
     "prompt",
     "input",
+    "api_key",
+    "gemini_api_key",
+    "gemini_api_key_encrypted",
   ]);
   return Object.fromEntries(
     Object.entries(fields).filter(([key]) => !blocked.has(key)),

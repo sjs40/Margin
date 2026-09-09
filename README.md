@@ -1,8 +1,10 @@
 # Margin
 
-Personal investment-research capture and memory. Type a thought, save it in seconds, then let organization happen afterward.
+Investment-research capture and memory. Type a thought, save it in seconds, then let organization happen afterward.
 
-V0.1 is a single-user PWA for one public-equity analyst. It is not a multi-tenant product.
+Try the hosted app: [margin-psi-three.vercel.app](https://margin-psi-three.vercel.app)
+
+Create an account, then add your own [Gemini API key](https://aistudio.google.com/apikey) in Settings. Raw notes always save, even before a key is added. The hosted app may offer a small daily AI allowance; that can be turned off by the operator.
 
 ## Stack
 
@@ -11,7 +13,7 @@ V0.1 is a single-user PWA for one public-equity analyst. It is not a multi-tenan
 - Google Gemini (`gemini-3.7-flash`, `gemini-embedding-2`)
 - Vercel (app + nightly cron at `/api/cron/nightly`)
 
-## Local development
+## Local development / self-host
 
 1. Create a Supabase project.
 2. Copy `.env.example` to `.env.local` and fill in:
@@ -19,7 +21,9 @@ V0.1 is a single-user PWA for one public-equity analyst. It is not a multi-tenan
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or a publishable key)
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `GEMINI_API_KEY`
+- `GEMINI_API_KEY` (server key for you / hosted trial)
+- `AI_KEY_ENCRYPTION_SECRET` (long random string; encrypts user keys at rest)
+- `ADMIN_EMAIL` (the login that can open `/admin`)
 - `CRON_SECRET` (a long random string for the nightly job)
 
 Never commit `.env.local`.
@@ -29,10 +33,11 @@ Never commit `.env.local`.
 - `supabase/migrations/0001_init.sql`
 - `supabase/migrations/0002_match_embeddings.sql`
 - `supabase/migrations/0003_note_links.sql`
+- `supabase/migrations/0004_user_ai_keys.sql`
 
 Optional sample tickers: `supabase/seed.sql`.
 
-4. Enable email/password Auth. For local use, turn off "Confirm email" or you will not get a session without SMTP.
+4. Enable email/password Auth. Turn **off** "Confirm email" unless you have SMTP, or new accounts will not get a session.
 
 5. Install and run:
 
@@ -41,9 +46,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an account, and start typing. Raw notes save even if `GEMINI_API_KEY` is missing. AI processing needs that key.
+Open [http://localhost:3000](http://localhost:3000), create an account, and start typing.
 
-Model IDs live in `.env.local`, not in feature code. Create a Gemini key in Google AI Studio.
+Model IDs live in `.env.local`, not in feature code.
 
 ## Tests
 

@@ -6,7 +6,8 @@ export default function LoginPage() {
       <p className="font-sans text-sm font-semibold tracking-[0.22em] uppercase">Margin</p>
       <h1 className="mt-6 font-serif text-3xl leading-tight">Capture first. Organize afterward.</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Private research memory for one analyst. Sign in to start capturing.
+        Private investment-research memory. Create an account, then add a Gemini API key in Settings
+        when you want AI processing. Raw notes always save.
       </p>
       <div className="mt-8">
         <LoginForm />
