@@ -241,7 +241,7 @@ async function upsertEmbedding(
 }
 
 export async function processTextNote(noteId: string) {
-  await prepareNoteLinks(noteId);
+  const links = await prepareNoteLinks(noteId);
   const supabase = createAdminClient();
   const { data: note, error } = await supabase
     .from("notes")
@@ -251,7 +251,7 @@ export async function processTextNote(noteId: string) {
   if (error || !note) return;
 
   const bound = await withUserAi(note.user_id, { consume: true }, async () => {
-    await processTextNoteBound(supabase, note, noteId);
+    await processTextNoteBound(supabase, note, noteId, links);
   });
   if (!bound.ok) {
     logger.warn("ai_skipped_unconfigured", { objectId: noteId, reason: bound.reason });
@@ -265,6 +265,7 @@ async function processTextNoteBound(
   supabase: Admin,
   note: { user_id: string; raw_text: string | null },
   noteId: string,
+  links: Awaited<ReturnType<typeof prepareNoteLinks>>,
 ) {
   await supabase.from("notes").update({ processing_status: "processing" }).eq("id", noteId);
   const jobId = await startJob({
