@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
@@ -9,6 +10,7 @@ import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
 import { isAiConfigured } from "@/lib/env";
 import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
+import { prepareNoteLinks } from "@/features/links/sync";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
 import type { ParsedImport } from "@/ai/schemas/memory-update";
 
@@ -239,8 +241,12 @@ async function upsertEmbedding(
 }
 
 export async function processTextNote(noteId: string) {
+  const links = await prepareNoteLinks(noteId);
   if (!isAiConfigured()) {
     logger.warn("ai_skipped_unconfigured", { objectId: noteId });
+    revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath(`/notes/${noteId}`);
     return;
   }
   const supabase = createAdminClient();
@@ -266,6 +272,11 @@ export async function processTextNote(noteId: string) {
     const parsed = await ai.parseNote(
       source,
       existing.map((theme) => theme.name),
+      links.map((link) => ({
+        url: link.canonical_url ?? link.url,
+        title: link.title,
+        description: link.description,
+      })),
     );
     await storeParsedStructures(supabase, {
       userId: note.user_id,
@@ -300,6 +311,9 @@ export async function processTextNote(noteId: string) {
       latencyMs: parsed.latencyMs,
       diagnostics: { promptVersion: parsed.promptVersion, model: parsed.model },
     });
+    revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath(`/notes/${noteId}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "parse failed";
     logger.error("note_processing_failed", { objectId: noteId });
@@ -316,6 +330,10 @@ export async function processTextNote(noteId: string) {
       object_id: noteId,
     });
     await completeJob(jobId, { status: "failed", errorMessage: message });
+    revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath(`/notes/${noteId}`);
+    revalidatePath("/inbox");
   }
 }
 

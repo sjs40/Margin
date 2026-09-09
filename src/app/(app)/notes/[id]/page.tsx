@@ -5,7 +5,9 @@ import { Markdown } from "@/components/markdown";
 import { ProcessingBadge } from "@/components/processing-badge";
 import { formatLongDate } from "@/lib/dates";
 import { RetryNoteButton } from "@/features/notes/retry-button";
-import type { ProcessingStatus } from "@/types/domain";
+import { SourceCards } from "@/features/links/source-card";
+import { LinkifiedText } from "@/components/linkified-text";
+import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
   params,
@@ -16,7 +18,7 @@ export default async function NotePage({
   const supabase = await createClient();
   const { data: note } = await supabase.from("notes").select("*").eq("id", id).single();
   if (!note) notFound();
-  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }] =
+  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }, { data: links }] =
     await Promise.all([
       supabase
         .from("note_entities")
@@ -26,6 +28,7 @@ export default async function NotePage({
       supabase.from("questions").select("*").eq("note_id", id),
       supabase.from("followups").select("*").eq("note_id", id),
       supabase.from("claims").select("*").eq("note_id", id),
+      supabase.from("note_links").select("*").eq("note_id", id).order("created_at", { ascending: true }),
     ]);
 
   let imageUrl: string | null = null;
@@ -48,11 +51,12 @@ export default async function NotePage({
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
         {formatLongDate(note.captured_at)} · {note.source_type.replace("_", " ")}
       </p>
-      <h1 className="mt-2 font-serif text-3xl">{note.title || "Note"}</h1>
+      <h1 className="mt-2 font-serif text-3xl leading-tight md:text-3xl">{note.title || "Note"}</h1>
       <div className="mt-3 flex items-center gap-3">
         <ProcessingBadge status={note.processing_status as ProcessingStatus} />
         {note.processing_status === "failed" ? <RetryNoteButton noteId={note.id} /> : null}
       </div>
+      <SourceCards links={(links ?? []) as NoteLink[]} />
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="Original handwritten page" className="mt-6 rounded-lg border" />
@@ -77,7 +81,7 @@ export default async function NotePage({
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Raw source
         </h2>
-        <p className="mt-2 whitespace-pre-wrap font-serif text-[17px] leading-7">{note.raw_text}</p>
+        {note.raw_text ? <LinkifiedText text={note.raw_text} /> : <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>}
       </section>
       <MetaList
         title="Companies"

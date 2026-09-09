@@ -9,9 +9,34 @@ Rules:
 - Avoid false precision.
 - Return schema-compliant JSON only.`;
 
-export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v1";
+export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v2";
 
-export function parseNotePrompt(rawText: string, existingThemes: string[]): string {
+export type AttachedSource = {
+  url: string;
+  title: string | null;
+  description: string | null;
+};
+
+function attachedSourcesBlock(sources: AttachedSource[]): string {
+  if (sources.length === 0) return "";
+  const lines = sources.map((source) => {
+    const title = source.title ? `\n  title: ${source.title}` : "";
+    const excerpt = source.description ? `\n  excerpt: ${source.description}` : "";
+    return `- ${source.url}${title}${excerpt}`;
+  });
+  return `Attached sources (URLs the user included; metadata is a page title/excerpt only, not the article body):
+${lines.join("\n")}
+
+Treat the source note as the user's comments and take. Use attached metadata only as context. Do not invent article body, quotes, or facts that are not in the note or the excerpt. Keep URLs as markdown links in cleanedText.
+
+`;
+}
+
+export function parseNotePrompt(
+  rawText: string,
+  existingThemes: string[],
+  attachedSources: AttachedSource[] = [],
+): string {
   return `${ANALYST_PREAMBLE}
 
 Task: parse this captured research fragment.
@@ -22,7 +47,7 @@ If there is no reliable claim, return an empty claims array.
 Existing themes the user already tracks (prefer linking rather than inventing synonyms):
 ${existingThemes.length ? existingThemes.map((theme) => `- ${theme}`).join("\n") : "- none yet"}
 
-Source note:
+${attachedSourcesBlock(attachedSources)}Source note:
 """
 ${rawText}
 """`;

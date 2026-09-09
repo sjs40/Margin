@@ -22,6 +22,7 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows even thoug
 | `ai_jobs` | Processing ledger |
 | `embeddings` | pgvector retrieval records |
 | `inbox_items` | Ambiguity, failures, suggested themes |
+| `note_links` | URLs pasted into a note, plus fetched title/excerpt |
 
 ## Notes extras
 

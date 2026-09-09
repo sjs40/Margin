@@ -21,13 +21,24 @@ export function AppShell({
   inboxCount?: number;
 }) {
   const pathname = usePathname();
+  const cameraActive = pathname.startsWith("/camera");
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-sm">
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="font-sans text-sm font-semibold tracking-[0.22em] uppercase">
             Margin
+          </Link>
+          <Link
+            href="/camera"
+            className={cn(
+              "inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm md:hidden",
+              cameraActive && "bg-secondary text-foreground",
+            )}
+          >
+            <Camera className="size-4" />
+            Camera
           </Link>
           <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
             {ITEMS.map((item) => {
@@ -50,7 +61,7 @@ export function AppShell({
             })}
             <Link
               href="/camera"
-              className="ml-2 inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
+              className="ml-2 inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
             >
               <Camera className="size-4" />
               Camera
@@ -72,11 +83,18 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] text-muted-foreground",
+                  "flex min-h-11 flex-col items-center justify-center gap-0.5 py-2 text-[11px] text-muted-foreground",
                   active && "text-foreground",
                 )}
               >
-                <Icon className="size-4" />
+                <span className="relative">
+                  <Icon className="size-4" />
+                  {item.href === "/inbox" && inboxCount > 0 ? (
+                    <span className="absolute -right-2 -top-1.5 font-mono text-[9px] leading-none">
+                      {inboxCount}
+                    </span>
+                  ) : null}
+                </span>
                 {item.label}
               </Link>
             );

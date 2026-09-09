@@ -38,6 +38,22 @@ export type InboxCategory =
   | "processing_failed"
   | "suggested_theme";
 
+export type LinkFetchStatus = "pending" | "ready" | "failed";
+
+export type NoteLink = {
+  id: string;
+  user_id: string;
+  note_id: string;
+  url: string;
+  canonical_url: string | null;
+  title: string | null;
+  description: string | null;
+  image_url: string | null;
+  fetch_status: LinkFetchStatus;
+  fetch_error: string | null;
+  created_at: string;
+};
+
 export type Note = {
   id: string;
   user_id: string;
