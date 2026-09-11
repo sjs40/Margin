@@ -1,6 +1,12 @@
 import { LoginForm } from "@/features/auth/login-form";
+import { safeNextPath } from "@/lib/share";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const params = await searchParams;
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6">
       <p className="font-sans text-sm font-semibold tracking-[0.22em] uppercase">Margin</p>
@@ -10,7 +16,7 @@ export default function LoginPage() {
         when you want AI processing. Raw notes always save.
       </p>
       <div className="mt-8">
-        <LoginForm />
+        <LoginForm next={safeNextPath(params.next)} />
       </div>
     </div>
   );

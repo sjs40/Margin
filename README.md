@@ -78,3 +78,5 @@ Playwright (`npm run test:e2e`) checks the login gate. Authenticated capture flo
 Deploy to Vercel with the same environment variables. `vercel.json` schedules `GET /api/cron/nightly` with `Authorization: Bearer $CRON_SECRET`.
 
 On a phone, use Add to Home Screen (iOS Safari) or Install app (Chrome) from the browser menu. Camera capture uses the browser file input with `capture="environment"`. Paste a URL into the capture box with your comments; Margin extracts the link and fetches a title/excerpt when it can.
+
+Android Chrome (installed PWA) can share articles into Margin via the system share sheet. iOS Safari does not support share targets. Use a Shortcut instead: Share Sheet → Shortcut → Open URL `https://<host>/share?text=` plus the Shortcut Input, URL-encoded.
