@@ -49,20 +49,6 @@ export const ConnectionDiscoverySchema = z.object({
 
 export type ConnectionDiscovery = z.infer<typeof ConnectionDiscoverySchema>;
 
-export const AskAnswerSchema = z.object({
-  answer: z.string(),
-  sources: z.array(
-    z.object({
-      id: z.string(),
-      kind: z.enum(["note", "document", "meta_note"]),
-      title: z.string(),
-      date: z.string().nullable(),
-    }),
-  ),
-});
-
-export type AskAnswer = z.infer<typeof AskAnswerSchema>;
-
 export const ParsedImportSchema = z.object({
   title: z.string(),
   documentType: z.enum(["ai_research_session", "research_session", "longform"]),

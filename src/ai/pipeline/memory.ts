@@ -1,18 +1,51 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
+import { CLAIM_CONFLICTS_PROMPT_VERSION } from "@/ai/prompts";
 import { dailyKey, endOfDayIso, startOfDayIso } from "@/lib/dates";
 import { retrievalLimits } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { filterValidConflicts } from "@/lib/claims";
+import { formatResolvedThreads } from "@/lib/loose-ends";
+import { getUserSettings } from "@/lib/user-settings";
+import { formatThemePromptLine } from "@/lib/theme-resolution";
+import { asAliasList } from "@/lib/tickers";
 
-function formatNote(note: {
+type MemoryNote = {
   id: string;
   captured_at: string;
   title: string | null;
   interpreted_text: string | null;
   raw_text: string | null;
-}) {
-  return `[${note.captured_at}] (${note.id}) ${note.title ?? ""}\n${note.interpreted_text ?? note.raw_text ?? ""}`;
+  annotations?: Array<{ text: string; created_at: string }>;
+};
+
+function formatNote(note: MemoryNote) {
+  const body = `[${note.captured_at}] (${note.id}) ${note.title ?? ""}\n${note.interpreted_text ?? note.raw_text ?? ""}`;
+  const extra = (note.annotations ?? [])
+    .map((row) => `User annotation (${row.created_at.slice(0, 10)}): ${row.text}`)
+    .join("\n");
+  return extra ? `${body}\n${extra}` : body;
+}
+
+async function attachAnnotations(notes: MemoryNote[]): Promise<MemoryNote[]> {
+  if (notes.length === 0) return notes;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("note_annotations")
+    .select("note_id, text, created_at")
+    .in(
+      "note_id",
+      notes.map((note) => note.id),
+    )
+    .order("created_at", { ascending: true });
+  const byNote = new Map<string, Array<{ text: string; created_at: string }>>();
+  for (const row of data ?? []) {
+    const list = byNote.get(row.note_id) ?? [];
+    list.push({ text: row.text, created_at: row.created_at });
+    byNote.set(row.note_id, list);
+  }
+  return notes.map((note) => ({ ...note, annotations: byNote.get(note.id) ?? [] }));
 }
 
 async function nextVersion(metaNoteId: string) {
@@ -73,8 +106,9 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
     .eq("date", day)
     .maybeSingle();
 
+  const annotatedNotes = await attachAnnotations(notes ?? []);
   const material = [
-    ...(notes ?? []).map(formatNote),
+    ...annotatedNotes.map(formatNote),
     ...(documents ?? []).map((doc) =>
       `[${doc.captured_at}] document ${doc.id} ${doc.title ?? ""}\n${doc.interpreted_content ?? doc.raw_content}`,
     ),
@@ -93,6 +127,8 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
       date: day,
       notes: material,
       existingDaily: existing?.current_content,
+      userEdited: Boolean(existing?.user_edited),
+      resolvedQuestions: await loadResolvedThreads(userId) || undefined,
     });
     const payload = {
       user_id: userId,
@@ -100,6 +136,7 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
       date: day,
       title: result.data.title,
       current_content: result.data.content,
+      needs_refresh: false,
       updated_at: new Date().toISOString(),
     };
     const { data: saved, error } = existing
@@ -144,7 +181,7 @@ async function relevantNotesForEntity(userId: string, entityId: string) {
     .in("id", ids)
     .order("captured_at", { ascending: false })
     .limit(retrievalLimits.recentNotes);
-  return notes ?? [];
+  return attachAnnotations(notes ?? []);
 }
 
 async function relevantNotesForTheme(userId: string, themeId: string) {
@@ -162,15 +199,199 @@ async function relevantNotesForTheme(userId: string, themeId: string) {
     .in("id", ids)
     .order("captured_at", { ascending: false })
     .limit(retrievalLimits.recentNotes);
-  return notes ?? [];
+  return attachAnnotations(notes ?? []);
 }
 
-export async function updateCompanyMeta(userId: string, entityId: string) {
+type ClaimSnippet = {
+  id: string;
+  claim_text: string;
+  claim_type: string;
+  created_at: string;
+  note_id: string | null;
+  notes?: { captured_at: string } | { captured_at: string }[] | null;
+};
+
+function claimDate(claim: ClaimSnippet): string {
+  const note = Array.isArray(claim.notes) ? claim.notes[0] : claim.notes;
+  return note?.captured_at ?? claim.created_at;
+}
+
+function formatClaimLine(claim: ClaimSnippet): string {
+  return `[${claim.id}] ${claim.claim_type} (${claimDate(claim)}): ${claim.claim_text}`;
+}
+
+async function loadResolvedThreads(userId: string, entityId?: string) {
+  const supabase = createAdminClient();
+  let questions = supabase
+    .from("questions")
+    .select("question_text, resolution_comment, status")
+    .eq("user_id", userId)
+    .in("status", ["resolved", "dismissed"])
+    .not("resolution_comment", "is", null);
+  let followups = supabase
+    .from("followups")
+    .select("text, resolution_comment, status")
+    .eq("user_id", userId)
+    .in("status", ["completed", "dismissed"])
+    .not("resolution_comment", "is", null);
+  if (entityId) {
+    questions = questions.eq("entity_id", entityId);
+    followups = followups.eq("entity_id", entityId);
+  }
+  const [{ data: q }, { data: f }] = await Promise.all([questions, followups]);
+  return formatResolvedThreads([
+    ...(q ?? []).map((row) => ({ question: row.question_text, comment: row.resolution_comment })),
+    ...(f ?? []).map((row) => ({ question: row.text, comment: row.resolution_comment })),
+  ]);
+}
+
+async function loadActiveClaims(userId: string, entityId: string, limit: number, excludeNoteId?: string) {
+  const supabase = createAdminClient();
+  let query = supabase
+    .from("claims")
+    .select("id, claim_text, claim_type, created_at, note_id, notes(captured_at)")
+    .eq("user_id", userId)
+    .eq("entity_id", entityId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (excludeNoteId) query = query.neq("note_id", excludeNoteId);
+  const { data } = await query;
+  return (data ?? []) as ClaimSnippet[];
+}
+
+export async function detectClaimConflicts(input: {
+  userId: string;
+  entityId: string;
+  ticker: string | null;
+  name: string;
+  triggerNoteId: string;
+}) {
+  const settings = await getUserSettings(input.userId);
+  if (!settings.contradictionDetectionEnabled) return;
+
+  const supabase = createAdminClient();
+  const { data: newRows } = await supabase
+    .from("claims")
+    .select("id, claim_text, claim_type, created_at, note_id, notes(captured_at)")
+    .eq("user_id", input.userId)
+    .eq("entity_id", input.entityId)
+    .eq("note_id", input.triggerNoteId);
+  const newClaims = (newRows ?? []) as ClaimSnippet[];
+  if (newClaims.length === 0) return;
+
+  const priorClaims = await loadActiveClaims(
+    input.userId,
+    input.entityId,
+    settings.contradictionPriorClaimsLimit,
+    input.triggerNoteId,
+  );
+  if (priorClaims.length === 0) return;
+
+  const jobId = await startJob({
+    userId: input.userId,
+    jobType: "detect_claim_conflicts",
+    objectType: "note",
+    objectId: input.triggerNoteId,
+    provider: "gemini",
+    promptVersion: CLAIM_CONFLICTS_PROMPT_VERSION,
+  });
+
+  try {
+    const result = await ai.detectClaimConflicts({
+      ticker: input.ticker,
+      name: input.name,
+      newClaims: newClaims.map(formatClaimLine).join("\n"),
+      priorClaims: priorClaims.map(formatClaimLine).join("\n"),
+    });
+    const valid = filterValidConflicts(
+      result.data.conflicts,
+      newClaims.map((claim) => claim.id),
+      priorClaims.map((claim) => claim.id),
+      settings.contradictionMinConfidence,
+    );
+    for (const conflict of valid) {
+      const { data: relation, error } = await supabase
+        .from("claim_relations")
+        .upsert(
+          {
+            user_id: input.userId,
+            claim_id: conflict.newClaimId,
+            related_claim_id: conflict.priorClaimId,
+            relation_type: conflict.relation,
+            explanation: conflict.explanation,
+            detected_by: "ai",
+            user_status: "pending",
+          },
+          { onConflict: "claim_id,related_claim_id,relation_type" },
+        )
+        .select("id")
+        .single();
+      if (error || !relation) continue;
+      if (conflict.relation !== "contradicts") continue;
+      const newClaim = newClaims.find((claim) => claim.id === conflict.newClaimId);
+      const priorClaim = priorClaims.find((claim) => claim.id === conflict.priorClaimId);
+      await supabase.from("inbox_items").insert({
+        user_id: input.userId,
+        category: "contradiction",
+        object_type: "claim_relation",
+        object_id: relation.id,
+        title: `New note contradicts prior view on ${input.ticker ?? input.name}`,
+        body: conflict.explanation,
+        payload: {
+          relationType: conflict.relation,
+          ticker: input.ticker,
+          newClaim: {
+            id: conflict.newClaimId,
+            text: newClaim?.claim_text ?? "",
+            date: newClaim ? claimDate(newClaim) : null,
+            noteId: newClaim?.note_id ?? input.triggerNoteId,
+          },
+          priorClaim: {
+            id: conflict.priorClaimId,
+            text: priorClaim?.claim_text ?? "",
+            date: priorClaim ? claimDate(priorClaim) : null,
+            noteId: priorClaim?.note_id ?? null,
+          },
+        },
+      });
+    }
+    await completeJob(jobId, {
+      status: "completed",
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      estimatedCost: result.estimatedCost,
+      latencyMs: result.latencyMs,
+      diagnostics: { promptVersion: result.promptVersion, count: valid.length },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "claim conflict detection failed";
+    logger.warn("claim_conflict_detection_failed", { entityId: input.entityId });
+    await completeJob(jobId, { status: "failed", errorMessage: message });
+  }
+}
+
+export async function updateCompanyMeta(userId: string, entityId: string, triggerNoteId?: string) {
   const supabase = createAdminClient();
   const { data: entity } = await supabase.from("entities").select("*").eq("id", entityId).single();
   if (!entity) return;
   const notes = await relevantNotesForEntity(userId, entityId);
   if (notes.length === 0) return;
+  const settings = await getUserSettings(userId);
+  if (triggerNoteId) {
+    await detectClaimConflicts({
+      userId,
+      entityId,
+      ticker: entity.ticker,
+      name: entity.canonical_name,
+      triggerNoteId,
+    });
+  }
+  const priorClaims = await loadActiveClaims(
+    userId,
+    entityId,
+    settings.contradictionPriorClaimsLimit,
+  );
   const { data: existing } = await supabase
     .from("meta_notes")
     .select("*")
@@ -184,6 +405,8 @@ export async function updateCompanyMeta(userId: string, entityId: string) {
     existing: existing?.current_content ?? null,
     userEdited: Boolean(existing?.user_edited),
     recent: notes.map(formatNote).join("\n\n"),
+    priorClaims: priorClaims.map(formatClaimLine).join("\n") || undefined,
+    resolvedQuestions: (await loadResolvedThreads(userId, entityId)) || undefined,
   });
   const payload = {
     user_id: userId,
@@ -191,6 +414,7 @@ export async function updateCompanyMeta(userId: string, entityId: string) {
     entity_id: entityId,
     title: result.data.title || entity.ticker || entity.canonical_name,
     current_content: result.data.content,
+    needs_refresh: false,
     updated_at: new Date().toISOString(),
   };
   const { data: saved } = existing
@@ -224,7 +448,15 @@ export async function updateThemeMeta(userId: string, themeId: string) {
   const { data: theme } = await supabase.from("themes").select("*").eq("id", themeId).single();
   if (!theme) return;
   const notes = await relevantNotesForTheme(userId, themeId);
-  if (notes.length === 0) return;
+  if (notes.length === 0) {
+    await supabase
+      .from("meta_notes")
+      .update({ needs_refresh: false, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("meta_type", "theme")
+      .eq("theme_id", themeId);
+    return;
+  }
   const { data: existing } = await supabase
     .from("meta_notes")
     .select("*")
@@ -244,6 +476,7 @@ export async function updateThemeMeta(userId: string, themeId: string) {
     theme_id: themeId,
     title: result.data.title || theme.name,
     current_content: result.data.content,
+    needs_refresh: false,
     updated_at: new Date().toISOString(),
   };
   const { data: saved } = existing
@@ -296,13 +529,15 @@ export async function discoverAndInbox(userId: string) {
     .limit(40);
   const { data: themes } = await supabase
     .from("themes")
-    .select("name")
+    .select("name, aliases")
     .eq("user_id", userId)
     .eq("status", "active");
   if (!notes?.length) return;
   const result = await ai.discoverConnections({
     notes: notes.map(formatNote).join("\n\n"),
-    existingThemes: (themes ?? []).map((theme) => theme.name),
+    existingThemes: (themes ?? []).map((theme) =>
+      formatThemePromptLine({ name: theme.name, aliases: asAliasList(theme.aliases) }),
+    ),
   });
   for (const theme of result.data.emergingThemes) {
     await supabase.from("inbox_items").insert({
@@ -316,9 +551,32 @@ export async function discoverAndInbox(userId: string) {
   return result.data;
 }
 
+export async function refreshFlaggedMetaNotes(userId: string) {
+  const supabase = createAdminClient();
+  const { data: flagged } = await supabase
+    .from("meta_notes")
+    .select("meta_type, entity_id, theme_id, date")
+    .eq("user_id", userId)
+    .eq("needs_refresh", true);
+  for (const row of flagged ?? []) {
+    if (row.meta_type === "theme" && row.theme_id) {
+      await updateThemeMeta(userId, row.theme_id);
+      continue;
+    }
+    if (row.meta_type === "company" && row.entity_id) {
+      await updateCompanyMeta(userId, row.entity_id);
+      continue;
+    }
+    if (row.meta_type === "daily" && row.date) {
+      await upsertDailyMetaNote(userId, new Date(`${row.date}T12:00:00.000Z`));
+    }
+  }
+}
+
 export async function runNightlyIntelligence(userId: string, date = new Date()) {
   logger.info("nightly_intelligence_started", { userId });
   const daily = await upsertDailyMetaNote(userId, date);
+  await refreshFlaggedMetaNotes(userId);
   await discoverAndInbox(userId);
   logger.info("nightly_intelligence_completed", { userId });
   return daily;

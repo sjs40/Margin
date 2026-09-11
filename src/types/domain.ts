@@ -36,7 +36,8 @@ export type InboxCategory =
   | "needs_interpretation"
   | "ambiguous_entity"
   | "processing_failed"
-  | "suggested_theme";
+  | "suggested_theme"
+  | "contradiction";
 
 export type LinkFetchStatus = "pending" | "ready" | "failed";
 
@@ -95,6 +96,9 @@ export type Entity = {
   ticker: string | null;
   exchange: string | null;
   aliases: string[];
+  cik?: string | null;
+  source?: "sec" | "user";
+  last_synced_at?: string | null;
 };
 
 export type Theme = {

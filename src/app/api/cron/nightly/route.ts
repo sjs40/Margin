@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runNightlyIntelligence } from "@/ai/pipeline/memory";
 import { withUserAi } from "@/lib/ai-credentials";
 import { logger } from "@/lib/logger";
+import { syncSecTickerUniverse } from "@/lib/sec-tickers";
+
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -11,6 +14,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   logger.info("nightly_cron_started", {});
+  let tickerSync: Awaited<ReturnType<typeof syncSecTickerUniverse>> | null = null;
+  try {
+    tickerSync = await syncSecTickerUniverse({ force: false });
+  } catch (error) {
+    logger.warn("sec_ticker_sync_failed", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+  }
   const supabase = createAdminClient();
   const { data: users, error } = await supabase.from("users").select("id");
   if (error) {
@@ -25,5 +36,10 @@ export async function GET(request: Request) {
     if (bound.ok) ran += 1;
   }
   logger.info("nightly_cron_completed", { count: ran });
-  return NextResponse.json({ ok: true, users: users?.length ?? 0, ran });
+  return NextResponse.json({
+    ok: true,
+    users: users?.length ?? 0,
+    ran,
+    tickerSync,
+  });
 }

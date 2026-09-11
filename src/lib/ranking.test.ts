@@ -156,6 +156,7 @@ describe("chunkIds", () => {
 describe("tickerEntityScore", () => {
   it("is 1 only for ticker-shaped queries that match a linked ticker", () => {
     expect(tickerEntityScore("NVTS", ["NVTS", "ON"])).toBe(1);
+    expect(tickerEntityScore("$NVTS", ["NVTS", "ON"])).toBe(1);
     expect(tickerEntityScore("NVTS", ["CART"])).toBe(0);
     expect(tickerEntityScore("gallium nitride", ["NVTS"])).toBe(0);
   });
@@ -177,13 +178,13 @@ describe("groupTickersByOwner", () => {
 });
 
 describe("formatMemoryContext", () => {
-  it("includes source ids so Ask can cite notes", () => {
+  it("numbers sources so Ask can cite with [[n]]", () => {
     const context = formatMemoryContext([
       hit({ id: "note-200", kind: "note", title: "GaN thesis", snippet: "old note", date: "2024-01-01" }),
       hit({ id: "doc-1", kind: "document", title: "Import", snippet: "paste" }),
     ]);
-    expect(context).toContain("SOURCE id=note-200 kind=note");
-    expect(context).toContain("SOURCE id=doc-1 kind=document");
+    expect(context).toContain("[1] id=note-200 kind=note");
+    expect(context).toContain("[2] id=doc-1 kind=document");
     expect(context).toContain("GaN thesis");
   });
 });

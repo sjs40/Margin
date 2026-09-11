@@ -1,6 +1,7 @@
 import { SettingsForm } from "@/features/settings/settings-form";
 import { createClient } from "@/lib/supabase/server";
 import { getAiStatus } from "@/lib/ai-credentials";
+import { DEFAULT_USER_SETTINGS, getUserSettings } from "@/lib/user-settings";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {
@@ -8,6 +9,7 @@ export default async function SettingsPage() {
   const { data } = await supabase.auth.getUser();
   if (!data.user) redirect("/login");
   const status = await getAiStatus(data.user.id, data.user.email);
+  const pipelineSettings = await getUserSettings(data.user.id);
 
   return (
     <div className="mx-auto max-w-xl">
@@ -17,7 +19,11 @@ export default async function SettingsPage() {
         saved.
       </p>
       <div className="mt-8">
-        <SettingsForm status={status} />
+        <SettingsForm
+          status={status}
+          pipelineSettings={pipelineSettings}
+          defaults={DEFAULT_USER_SETTINGS}
+        />
       </div>
     </div>
   );

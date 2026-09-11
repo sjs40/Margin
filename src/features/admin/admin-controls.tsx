@@ -4,19 +4,33 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { setHostedAiEnabled } from "@/features/admin/actions";
+import { Button } from "@/components/ui/button";
+import { setHostedAiEnabled, triggerSecTickerSync } from "@/features/admin/actions";
 
 export function AdminControls({
   hostedEnabled,
   usage,
+  tickerSync,
+  settingsDistribution,
+  defaultUsers,
 }: {
   hostedEnabled: boolean;
   usage: Array<{ email: string | null; action_count: number }>;
+  tickerSync: { lastSyncedAt: string | null; secCount: number };
+  settingsDistribution: Array<{
+    enabled: boolean;
+    minConfidence: number;
+    priorLimit: number;
+    users: number;
+  }>;
+  defaultUsers: number;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(hostedEnabled);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   async function onToggle(next: boolean) {
     setPending(true);
@@ -29,6 +43,21 @@ export function AdminControls({
     }
     setEnabled(next);
     router.refresh();
+  }
+
+  async function onSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    const result = await triggerSecTickerSync();
+    setSyncing(false);
+    if ("error" in result && result.error) {
+      setSyncMessage(result.error);
+      return;
+    }
+    if ("ok" in result && result.ok) {
+      setSyncMessage(`Synced ${result.upserted} companies.`);
+      router.refresh();
+    }
   }
 
   return (
@@ -52,6 +81,27 @@ export function AdminControls({
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
       </section>
 
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          SEC ticker universe
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {tickerSync.secCount} SEC companies
+          {tickerSync.lastSyncedAt
+            ? ` · last synced ${new Date(tickerSync.lastSyncedAt).toLocaleString()}`
+            : " · not synced yet"}
+          . Nightly cron refreshes at most once a week.
+        </p>
+        <Button
+          className="mt-4 min-h-11"
+          onClick={() => void onSync()}
+          disabled={syncing}
+        >
+          {syncing ? "Syncing…" : "Sync SEC tickers now"}
+        </Button>
+        {syncMessage ? <p className="mt-3 text-sm text-muted-foreground">{syncMessage}</p> : null}
+      </section>
+
       <section>
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Today&apos;s hosted usage
@@ -68,6 +118,41 @@ export function AdminControls({
             ))}
           </ul>
         )}
+      </section>
+
+      <section>
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Contradiction settings
+        </h2>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <th className="py-2">Enabled</th>
+              <th>Min confidence</th>
+              <th>Prior claims</th>
+              <th>Users</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border">
+              <td className="py-2">default</td>
+              <td>0.7</td>
+              <td>50</td>
+              <td className="font-mono">{defaultUsers}</td>
+            </tr>
+            {settingsDistribution.map((row) => (
+              <tr
+                key={`${row.enabled}-${row.minConfidence}-${row.priorLimit}`}
+                className="border-b border-border"
+              >
+                <td className="py-2">{row.enabled ? "on" : "off"}</td>
+                <td className="font-mono">{row.minConfidence}</td>
+                <td className="font-mono">{row.priorLimit}</td>
+                <td className="font-mono">{row.users}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>
   );

@@ -7,6 +7,11 @@ import { formatLongDate } from "@/lib/dates";
 import { RetryNoteButton } from "@/features/notes/retry-button";
 import { SourceCards } from "@/features/links/source-card";
 import { LinkifiedText } from "@/components/linkified-text";
+import { AddLooseEnd, LooseEndRow } from "@/features/research/loose-end-row";
+import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { NoteAnnotations } from "@/features/notes/note-annotations";
+import { formatCapturePrice } from "@/lib/prices/format";
+import { ExportLink } from "@/features/export/export-link";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
@@ -18,17 +23,22 @@ export default async function NotePage({
   const supabase = await createClient();
   const { data: note } = await supabase.from("notes").select("*").eq("id", id).single();
   if (!note) notFound();
-  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }, { data: links }] =
+  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }, { data: links }, { data: annotations }] =
     await Promise.all([
       supabase
         .from("note_entities")
-        .select("confidence, entities(id, ticker, canonical_name)")
+        .select("confidence, price_at_capture, entities(id, ticker, canonical_name)")
         .eq("note_id", id),
       supabase.from("note_themes").select("confidence, themes(id, name)").eq("note_id", id),
       supabase.from("questions").select("*").eq("note_id", id),
       supabase.from("followups").select("*").eq("note_id", id),
       supabase.from("claims").select("*").eq("note_id", id),
       supabase.from("note_links").select("*").eq("note_id", id).order("created_at", { ascending: true }),
+      supabase
+        .from("note_annotations")
+        .select("id, text, created_at, parent_annotation_id")
+        .eq("note_id", id)
+        .order("created_at", { ascending: true }),
     ]);
 
   let imageUrl: string | null = null;
@@ -55,6 +65,7 @@ export default async function NotePage({
       <div className="mt-3 flex items-center gap-3">
         <ProcessingBadge status={note.processing_status as ProcessingStatus} />
         {note.processing_status === "failed" ? <RetryNoteButton noteId={note.id} /> : null}
+        <ExportLink href={`/api/export/note/${note.id}`} label="Export" />
       </div>
       <SourceCards links={(links ?? []) as NoteLink[]} />
       {imageUrl ? (
@@ -81,15 +92,30 @@ export default async function NotePage({
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Raw source
         </h2>
-        {note.raw_text ? <LinkifiedText text={note.raw_text} /> : <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>}
+        {note.raw_text ? (
+          <LinkifiedText
+            text={note.raw_text}
+            companies={(companies ?? []).flatMap((row) => {
+              const entity = Array.isArray(row.entities) ? row.entities[0] : row.entities;
+              return entity ? [{ id: entity.id, ticker: entity.ticker }] : [];
+            })}
+          />
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>
+        )}
       </section>
+      <NoteAnnotations noteId={note.id} annotations={annotations ?? []} />
       <MetaList
         title="Companies"
         items={(companies ?? []).map((row) => {
           const entity = Array.isArray(row.entities) ? row.entities[0] : row.entities;
-          return entity
-            ? { href: `/research/companies/${entity.id}`, label: entity.ticker || entity.canonical_name }
-            : null;
+          if (!entity) return null;
+          const ticker = entity.ticker || entity.canonical_name;
+          const stamp =
+            entity.ticker && row.price_at_capture != null
+              ? formatCapturePrice(entity.ticker, Number(row.price_at_capture))
+              : ticker;
+          return { href: `/research/companies/${entity.id}`, label: stamp };
         })}
       />
       <MetaList
@@ -99,8 +125,25 @@ export default async function NotePage({
           return theme ? { href: `/research/themes/${theme.id}`, label: theme.name } : null;
         })}
       />
-      <SimpleList title="Questions" items={(questions ?? []).map((item) => item.question_text)} />
-      <SimpleList title="Follow-ups" items={(followups ?? []).map((item) => item.text)} />
+      <section className="mt-8">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Questions
+        </h2>
+        <ul className="mt-2 space-y-4">
+          {(questions ?? []).map((item) => (
+            <LooseEndRow key={item.id} contextNoteId={note.id} item={mapQuestion(item)} />
+          ))}
+        </ul>
+        <h2 className="mt-8 font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Follow-ups
+        </h2>
+        <ul className="mt-2 space-y-4">
+          {(followups ?? []).map((item) => (
+            <LooseEndRow key={item.id} contextNoteId={note.id} item={mapFollowup(item)} />
+          ))}
+        </ul>
+        <AddLooseEnd noteId={note.id} />
+      </section>
       <SimpleList title="Claims" items={(claims ?? []).map((item) => `${item.claim_type}: ${item.claim_text}`)} />
     </div>
   );

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Markdown } from "@/components/markdown";
+import { CitedAnswer, hrefFor, type AskSource } from "@/features/search/cited-answer";
 
 type Hit = {
   id: string;
@@ -17,8 +17,8 @@ type Hit = {
 };
 
 type AskResult = {
-  answer: { answer: string; sources: Array<{ id: string; kind: string; title: string; date: string | null }> };
-  hits: Hit[];
+  answer: string;
+  sources: AskSource[];
 };
 
 export function SearchClient() {
@@ -39,16 +39,19 @@ export function SearchClient() {
     setPending(false);
     if (!response.ok) {
       setAsk({
-        answer: {
-          answer: typeof data.error === "string" ? data.error : "Ask failed.",
-          sources: [],
-        },
-        hits: [],
+        answer: typeof data.error === "string" ? data.error : "Ask failed.",
+        sources: [],
       });
       return;
     }
-    if (mode === "ask") setAsk(data);
-    else setHits(data.hits ?? []);
+    if (mode === "ask") {
+      setAsk({
+        answer: typeof data.answer === "string" ? data.answer : "",
+        sources: Array.isArray(data.sources) ? data.sources : [],
+      });
+    } else {
+      setHits(data.hits ?? []);
+    }
   }
 
   const groups = ["company", "theme", "note", "document", "meta_note"] as const;
@@ -89,16 +92,9 @@ export function SearchClient() {
           <p className="font-sans text-xs uppercase tracking-[0.16em] text-muted-foreground">
             Synthesis
           </p>
-          <Markdown content={ask.answer.answer} />
-          <ul className="mt-4 space-y-2 text-sm">
-            {ask.answer.sources.map((source) => (
-              <li key={`${source.kind}-${source.id}`}>
-                <Link className="underline" href={hrefFor(source.kind, source.id)}>
-                  {source.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <CitedAnswer answer={ask.answer} sources={ask.sources} />
+          </div>
         </section>
       ) : null}
       <div className="mt-8 space-y-8">
@@ -126,19 +122,4 @@ export function SearchClient() {
       </div>
     </div>
   );
-}
-
-function hrefFor(kind: string, id: string) {
-  switch (kind) {
-    case "note":
-      return `/notes/${id}`;
-    case "document":
-      return `/documents/${id}`;
-    case "company":
-      return `/research/companies/${id}`;
-    case "theme":
-      return `/research/themes/${id}`;
-    default:
-      return "/research";
-  }
 }

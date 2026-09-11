@@ -6,6 +6,7 @@ import type { Note } from "@/types/domain";
 
 export type FeedNote = Note & {
   note_links?: Array<{ url: string; title: string | null }>;
+  note_annotations?: Array<{ id: string }>;
 };
 
 export function NoteFeed({ notes }: { notes: FeedNote[] }) {
@@ -47,6 +48,11 @@ export function NoteFeed({ notes }: { notes: FeedNote[] }) {
                 ) : null}
                 <div className="mt-2 flex items-center gap-3">
                   <ProcessingBadge status={note.processing_status} />
+                  {(note.note_annotations?.length ?? 0) > 0 ? (
+                    <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      +{note.note_annotations?.length}
+                    </span>
+                  ) : null}
                   <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                     {note.source_type.replace("_", " ")}
                   </span>

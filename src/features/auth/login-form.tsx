@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm() {
+export function LoginForm({ next = "/" }: { next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +35,7 @@ export function LoginForm() {
         setMode("signin");
         return;
       }
-      router.replace("/");
+      router.replace(next);
       router.refresh();
       return;
     }
@@ -45,7 +45,7 @@ export function LoginForm() {
       setError(authError.message);
       return;
     }
-    router.replace("/");
+    router.replace(next);
     router.refresh();
   }
 

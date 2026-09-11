@@ -1,15 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
 import { getOptionalProvider } from "@/ai/modelRouter";
+import { sanitizeAskCitations } from "@/lib/ask-citations";
+import { logger } from "@/lib/logger";
 import {
   chunkIds,
   formatMemoryContext,
   groupTickersByOwner,
   hybridScore,
   lexicalScore,
-  looksLikeTickerQuery,
   mergeVectorHits,
   missingVectorIdsBySourceType,
+  normalizedTickerQuery,
   recencyScore,
   tickerEntityScore,
   type RankedHit,
@@ -224,8 +226,7 @@ async function matchQueryVectors(
 
 export async function hybridSearch(userId: string, query: string): Promise<RankedHit[]> {
   const supabase = createAdminClient();
-  const tickerQuery = looksLikeTickerQuery(query);
-  const ticker = tickerQuery ? query.trim().toUpperCase() : null;
+  const ticker = normalizedTickerQuery(query);
 
   const [{ data: recentNotes }, { data: recentDocuments }, { data: companies }, { data: themes }] =
     await Promise.all([
@@ -242,7 +243,7 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
         .order("captured_at", { ascending: false })
         .limit(RECENCY_DOCUMENT_LIMIT),
       supabase.from("entities").select("id, ticker, canonical_name").eq("entity_type", "company"),
-      supabase.from("themes").select("id, name, description").eq("user_id", userId),
+      supabase.from("themes").select("id, name, description").eq("user_id", userId).eq("status", "active"),
     ]);
 
   let noteRows = uniqueById((recentNotes ?? []) as NoteRow[]);
@@ -261,8 +262,7 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
       title: company.ticker ? `${company.ticker} · ${company.canonical_name}` : company.canonical_name,
       snippet: company.canonical_name,
       tickers: company.ticker ? [company.ticker] : [],
-      entityScore:
-        tickerQuery && company.ticker === query.trim().toUpperCase() ? 1 : lexicalScore(query, text),
+      entityScore: ticker && company.ticker === ticker ? 1 : lexicalScore(query, text),
       lexicalScore: lexicalScore(query, text),
       vectorScore: 0,
       recencyScore: 0.5,
@@ -326,7 +326,26 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
 
 export async function askFromMemory(userId: string, question: string) {
   const hits = await hybridSearch(userId, question);
-  const context = formatMemoryContext(hits);
-  const answer = await ai.answerFromMemory({ question, context });
-  return { answer: answer.data, hits };
+  const limited = hits.slice(0, 12);
+  const context = formatMemoryContext(limited);
+  const result = await ai.answerFromMemory({ question, context });
+  const sanitized = sanitizeAskCitations(result.data.answer, limited.length);
+  if (sanitized.stripped.length > 0) {
+    logger.warn("ask_invalid_citations", { stripped: sanitized.stripped });
+  }
+  const sources = sanitized.citedIndices.flatMap((index) => {
+    const hit = limited[index - 1];
+    if (!hit) return [];
+    return [
+      {
+        index,
+        id: hit.id,
+        kind: hit.kind,
+        title: hit.title,
+        date: hit.date ?? null,
+        snippet: hit.snippet,
+      },
+    ];
+  });
+  return { answer: sanitized.answer, sources };
 }

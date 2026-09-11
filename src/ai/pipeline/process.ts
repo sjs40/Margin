@@ -4,13 +4,15 @@ import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
 import { StructuredOutputError } from "@/ai/aiService";
 import { resolveCompanies } from "@/lib/entity-resolution";
-import { normalizeThemeName, pickExistingTheme } from "@/lib/theme-resolution";
-import { lookupTicker } from "@/lib/tickers";
+import { normalizeThemeName, pickExistingTheme, formatThemePromptLine, findSimilarTheme } from "@/lib/theme-resolution";
+import { asAliasList, extractCashtags, lookupTicker } from "@/lib/tickers";
 import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
 import { withUserAi } from "@/lib/ai-credentials";
 import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
 import { prepareNoteLinks } from "@/features/links/sync";
+import { updateCompanyMeta } from "@/ai/pipeline/memory";
+import { stampNotePrices } from "@/lib/prices/stamp";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
 import type { ParsedImport } from "@/ai/schemas/memory-update";
 
@@ -19,10 +21,13 @@ type Admin = ReturnType<typeof createAdminClient>;
 async function themeNames(supabase: Admin, userId: string) {
   const { data } = await supabase
     .from("themes")
-    .select("id, name, normalized_name, status")
+    .select("id, name, normalized_name, status, aliases")
     .eq("user_id", userId)
     .neq("status", "archived");
-  return data ?? [];
+  return (data ?? []).map((theme) => ({
+    ...theme,
+    aliases: asAliasList(theme.aliases),
+  }));
 }
 
 async function upsertCompany(
@@ -30,12 +35,16 @@ async function upsertCompany(
   input: { ticker: string | null; canonicalName: string; aliases: string[] },
 ) {
   if (input.ticker) {
+    const known = await lookupTicker(input.ticker);
+    if (known?.id) return known.id;
     const { data: existing } = await supabase
       .from("entities")
       .select("id")
-      .eq("ticker", input.ticker)
+      .eq("entity_type", "company")
+      .ilike("ticker", input.ticker)
       .maybeSingle();
     if (existing) return existing.id as string;
+    throw new Error(`Refusing to create unknown ticker ${input.ticker}`);
   }
   const { data: byName } = await supabase
     .from("entities")
@@ -45,15 +54,14 @@ async function upsertCompany(
     .maybeSingle();
   if (byName) return byName.id as string;
 
-  const known = input.ticker ? lookupTicker(input.ticker) : undefined;
   const { data, error } = await supabase
     .from("entities")
     .insert({
       entity_type: "company",
-      canonical_name: known?.name ?? input.canonicalName,
-      ticker: input.ticker,
-      exchange: known?.exchange ?? null,
-      aliases: known?.aliases ?? input.aliases,
+      canonical_name: input.canonicalName,
+      ticker: null,
+      aliases: input.aliases,
+      source: "user",
     })
     .select("id")
     .single();
@@ -76,12 +84,15 @@ async function resolveThemesForUser(
       continue;
     }
     if (theme.confidence < 0.8) {
+      const similar = findSimilarTheme(theme.name, existing);
       await supabase.from("inbox_items").insert({
         user_id: userId,
         category: "suggested_theme",
         title: `Suggested theme: ${theme.name}`,
-        body: "This concept appeared in a note but was not automatically created.",
-        payload: { name: theme.name, confidence: theme.confidence },
+        body: similar
+          ? `Similar to existing theme: ${similar.name}`
+          : "This concept appeared in a note but was not automatically created.",
+        payload: { name: theme.name, confidence: theme.confidence, similarThemeId: similar?.id ?? null },
       });
       continue;
     }
@@ -101,6 +112,7 @@ async function resolveThemesForUser(
       name: data.name,
       normalized_name: normalizeThemeName(theme.name),
       status: "active",
+      aliases: [],
     });
     linked.push({ id: data.id, name: data.name, confidence: theme.confidence, created: true });
   }
@@ -117,9 +129,11 @@ async function storeParsedStructures(
     sourceText: string;
   },
 ) {
-  const { resolved, ambiguous } = resolveCompanies(input.parsed.companies, input.sourceText);
+  const { resolved, ambiguous } = await resolveCompanies(input.parsed.companies, input.sourceText);
+  const entityIds: string[] = [];
   for (const company of resolved) {
     const entityId = await upsertCompany(supabase, company);
+    entityIds.push(entityId);
     if (input.noteId) {
       await supabase.from("note_entities").upsert(
         {
@@ -185,9 +199,11 @@ async function storeParsedStructures(
         user_id: input.userId,
         note_id: input.noteId ?? null,
         document_id: input.documentId ?? null,
+        entity_id: entityIds[0] ?? null,
         claim_text: claim.text,
         claim_type: claim.type,
         confidence: claim.confidence,
+        status: "active",
       });
     }
   }
@@ -196,8 +212,11 @@ async function storeParsedStructures(
       user_id: input.userId,
       note_id: input.noteId ?? null,
       document_id: input.documentId ?? null,
+      entity_id: entityIds[0] ?? null,
+      theme_id: themes[0]?.id ?? null,
       question_text: question,
       status: "open",
+      source: "ai",
     });
   }
   for (const followUp of input.parsed.followUps) {
@@ -205,11 +224,39 @@ async function storeParsedStructures(
       user_id: input.userId,
       note_id: input.noteId ?? null,
       document_id: input.documentId ?? null,
+      entity_id: entityIds[0] ?? null,
+      theme_id: themes[0]?.id ?? null,
       text: followUp,
       status: "open",
+      source: "ai",
     });
   }
-  return { resolved, themes };
+  return { resolved, themes, entityIds };
+}
+
+export async function reembedNoteWithAnnotations(noteId: string) {
+  const supabase = createAdminClient();
+  const { data: note } = await supabase.from("notes").select("id, user_id, raw_text, interpreted_text").eq("id", noteId).single();
+  if (!note) return;
+  const { data: annotations } = await supabase
+    .from("note_annotations")
+    .select("text, created_at")
+    .eq("note_id", noteId)
+    .order("created_at", { ascending: true });
+  const extra = (annotations ?? [])
+    .map((row) => `User annotation (${row.created_at.slice(0, 10)}): ${row.text}`)
+    .join("\n");
+  const content = [note.interpreted_text || note.raw_text || "", extra].filter(Boolean).join("\n\n");
+  await withUserAi(note.user_id, { consume: false }, async () => {
+    await upsertEmbedding(supabase, {
+      userId: note.user_id,
+      sourceType: "note",
+      sourceId: noteId,
+      chunkIndex: 0,
+      content,
+      metadata: { annotations: (annotations ?? []).length },
+    });
+  });
 }
 
 async function upsertEmbedding(
@@ -281,19 +328,28 @@ async function processTextNoteBound(
     const source = note.raw_text ?? "";
     const parsed = await ai.parseNote(
       source,
-      existing.map((theme) => theme.name),
+      existing.map((theme) => formatThemePromptLine(theme)),
       links.map((link) => ({
         url: link.canonical_url ?? link.url,
         title: link.title,
         description: link.description,
       })),
+      extractCashtags(source),
     );
-    await storeParsedStructures(supabase, {
+    const stored = await storeParsedStructures(supabase, {
       userId: note.user_id,
       noteId,
       parsed: parsed.data,
       sourceText: source,
     });
+    try {
+      await stampNotePrices(supabase, noteId);
+    } catch (error) {
+      logger.warn("price_stamp_failed", {
+        objectId: noteId,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    }
     await supabase
       .from("notes")
       .update({
@@ -313,6 +369,16 @@ async function processTextNoteBound(
       content: parsed.data.cleanedText || source,
       metadata: { noteKind: parsed.data.noteKind },
     });
+    for (const entityId of stored.entityIds) {
+      try {
+        await updateCompanyMeta(note.user_id, entityId, noteId);
+      } catch (error) {
+        logger.warn("company_memory_update_failed", {
+          objectId: noteId,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
     await completeJob(jobId, {
       status: "completed",
       inputTokens: parsed.inputTokens,
@@ -476,7 +542,7 @@ async function processDocumentBound(
     const existing = await themeNames(supabase, document.user_id);
     const parsed = await ai.parseAIImport(
       document.raw_content,
-      existing.map((theme) => theme.name),
+      existing.map((theme) => formatThemePromptLine(theme)),
     );
     await storeParsedStructures(supabase, {
       userId: document.user_id,

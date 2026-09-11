@@ -25,6 +25,8 @@ Create an account, then add your own [Gemini API key](https://aistudio.google.co
 - `AI_KEY_ENCRYPTION_SECRET` (long random string; encrypts user keys at rest)
 - `ADMIN_EMAIL` (the login that can open `/admin`)
 - `CRON_SECRET` (a long random string for the nightly job)
+- `SEC_USER_AGENT` (descriptive User-Agent with contact email; required to fetch SEC tickers)
+- `PRICE_PROVIDER` (`yahoo` default, `stooq`, or `none`)
 
 Never commit `.env.local`.
 
@@ -34,8 +36,15 @@ Never commit `.env.local`.
 - `supabase/migrations/0002_match_embeddings.sql`
 - `supabase/migrations/0003_note_links.sql`
 - `supabase/migrations/0004_user_ai_keys.sql`
+- `supabase/migrations/0005_sec_ticker_universe.sql`
+- `supabase/migrations/0006_claim_relations.sql`
+- `supabase/migrations/0007_loose_ends_workflow.sql`
+- `supabase/migrations/0008_note_annotations.sql`
+- `supabase/migrations/0009_price_stamps.sql`
+- `supabase/migrations/0010_theme_merge.sql`
+- `supabase/migrations/0011_merge_themes_disambiguate.sql`
 
-Optional sample tickers: `supabase/seed.sql`.
+The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 
 4. Enable email/password Auth. Turn **off** "Confirm email" unless you have SMTP, or new accounts will not get a session.
 
@@ -71,3 +80,9 @@ Playwright (`npm run test:e2e`) checks the login gate. Authenticated capture flo
 Deploy to Vercel with the same environment variables. `vercel.json` schedules `GET /api/cron/nightly` with `Authorization: Bearer $CRON_SECRET`.
 
 On a phone, use Add to Home Screen (iOS Safari) or Install app (Chrome) from the browser menu. Camera capture uses the browser file input with `capture="environment"`. Paste a URL into the capture box with your comments; Margin extracts the link and fetches a title/excerpt when it can.
+
+Android Chrome (installed PWA) can share articles into Margin via the system share sheet. iOS Safari does not support share targets. Use a Shortcut instead: Share Sheet → Shortcut → Open URL `https://<host>/share?text=` plus the Shortcut Input, URL-encoded.
+
+## Export
+
+Note, company, and theme pages have an Export link (`/api/export/...`). Settings → Export everything downloads a zip of every note as Markdown. Exports use your login (RLS), never the service role.

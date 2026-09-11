@@ -5,15 +5,28 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { removeGeminiKey, saveGeminiKey } from "@/features/settings/actions";
+import { removeGeminiKey, saveGeminiKey, savePipelineSettings } from "@/features/settings/actions";
 import type { AiStatus } from "@/lib/ai-credentials";
+import type { UserSettings } from "@/lib/user-settings";
+import { Switch } from "@/components/ui/switch";
 
-export function SettingsForm({ status }: { status: AiStatus }) {
+export function SettingsForm({
+  status,
+  pipelineSettings,
+  defaults,
+}: {
+  status: AiStatus;
+  pipelineSettings: UserSettings;
+  defaults: UserSettings;
+}) {
   const router = useRouter();
   const [key, setKey] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [enabled, setEnabled] = useState(pipelineSettings.contradictionDetectionEnabled);
+  const [confidence, setConfidence] = useState(pipelineSettings.contradictionMinConfidence);
+  const [priorLimit, setPriorLimit] = useState(pipelineSettings.contradictionPriorClaimsLimit);
 
   async function onSave(event: React.FormEvent) {
     event.preventDefault();
@@ -96,6 +109,100 @@ export function SettingsForm({ status }: { status: AiStatus }) {
           )}
         </section>
       ) : null}
+
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-medium">Advanced</h2>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="contradiction-enabled">Contradiction detection</Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Compare new claims against prior views on the same company.
+            </p>
+          </div>
+          <Switch
+            id="contradiction-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
+        </div>
+        <div className="mt-5 space-y-2">
+          <Label htmlFor="contradiction-confidence">
+            How sure the AI must be before flagging a contradiction. Higher means fewer, cleaner
+            flags.
+          </Label>
+          <input
+            id="contradiction-confidence"
+            type="range"
+            min={0.5}
+            max={0.95}
+            step={0.05}
+            value={confidence}
+            onChange={(event) => setConfidence(Number(event.target.value))}
+            className="w-full"
+          />
+          <p className="font-mono text-sm">{confidence.toFixed(2)}</p>
+        </div>
+        <div className="mt-5 space-y-2">
+          <Label htmlFor="prior-claims">
+            How far back to compare. Higher costs more tokens per note.
+          </Label>
+          <Input
+            id="prior-claims"
+            type="number"
+            min={10}
+            max={200}
+            value={priorLimit}
+            placeholder={String(defaults.contradictionPriorClaimsLimit)}
+            onChange={(event) => setPriorLimit(Number(event.target.value))}
+          />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={async () => {
+              setPending(true);
+              setError(null);
+              setMessage(null);
+              const result = await savePipelineSettings({
+                contradictionDetectionEnabled: enabled,
+                contradictionMinConfidence: confidence,
+                contradictionPriorClaimsLimit: priorLimit,
+              });
+              setPending(false);
+              if (result.error) setError(result.error);
+              else {
+                setMessage("Pipeline settings saved.");
+                router.refresh();
+              }
+            }}
+          >
+            Save advanced settings
+          </Button>
+          <button
+            type="button"
+            className="text-sm underline"
+            onClick={() => {
+              setEnabled(defaults.contradictionDetectionEnabled);
+              setConfidence(defaults.contradictionMinConfidence);
+              setPriorLimit(defaults.contradictionPriorClaimsLimit);
+            }}
+          >
+            Reset to defaults
+          </button>
+        </div>
+      </section>
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-medium">Export</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Download every note as Markdown files in a zip. No AI is involved.
+        </p>
+        <div className="mt-4">
+          <Button asChild variant="outline">
+            <a href="/api/export/all">Export everything</a>
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

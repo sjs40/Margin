@@ -56,3 +56,13 @@ export const retrievalLimits = {
   recentNotes: 20,
   semanticHistorical: 15,
 };
+
+export function secUserAgent(): string {
+  return read("SEC_USER_AGENT").trim();
+}
+
+export function priceProvider(): "yahoo" | "stooq" | "none" {
+  const value = read("PRICE_PROVIDER", "yahoo").trim().toLowerCase();
+  if (value === "stooq" || value === "none") return value;
+  return "yahoo";
+}

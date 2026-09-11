@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
+import { safeNextPath } from "@/lib/share";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -38,15 +39,19 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
+    const next = `${path}${request.nextUrl.search}`;
     url.pathname = "/login";
-    url.searchParams.set("next", path);
+    url.search = "";
+    url.searchParams.set("next", next);
     return NextResponse.redirect(url);
   }
 
   if (user && path.startsWith("/login")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
+    const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+    const [pathname, search = ""] = next.split("?");
+    url.pathname = pathname || "/";
+    url.search = search ? `?${search}` : "";
     return NextResponse.redirect(url);
   }
 

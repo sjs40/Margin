@@ -1,6 +1,7 @@
 import { generateStructured, embedText, aiConfig } from "@/ai/aiService";
 import {
   ASK_PROMPT_VERSION,
+  CLAIM_CONFLICTS_PROMPT_VERSION,
   COMPANY_MEMORY_PROMPT_VERSION,
   DAILY_SYNTHESIS_PROMPT_VERSION,
   DISCOVER_CONNECTIONS_PROMPT_VERSION,
@@ -9,6 +10,7 @@ import {
   PARSE_NOTE_PROMPT_VERSION,
   THEME_MEMORY_PROMPT_VERSION,
   askFromMemoryPrompt,
+  claimConflictsPrompt,
   companyMemoryPrompt,
   dailySynthesisPrompt,
   discoverConnectionsPrompt,
@@ -18,9 +20,10 @@ import {
   themeMemoryPrompt,
   type AttachedSource,
 } from "@/ai/prompts";
+import { AskAnswerSchema } from "@/ai/schemas/ask";
 import { HandwritingSchema } from "@/ai/schemas/handwriting";
+import { ClaimConflictsSchema } from "@/ai/schemas/claim-conflicts";
 import {
-  AskAnswerSchema,
   ConnectionDiscoverySchema,
   DailySynthesisSchema,
   MemoryUpdateSchema,
@@ -29,10 +32,10 @@ import {
 import { ParsedNoteSchema } from "@/ai/schemas/parsed-note";
 
 export const ai = {
-  parseNote(rawText: string, existingThemes: string[], attachedSources: AttachedSource[] = []) {
+  parseNote(rawText: string, existingThemes: string[], attachedSources: AttachedSource[] = [], taggedTickers: string[] = []) {
     return generateStructured({
       schema: ParsedNoteSchema,
-      prompt: parseNotePrompt(rawText, existingThemes, attachedSources),
+      prompt: parseNotePrompt(rawText, existingThemes, attachedSources, taggedTickers),
       model: aiConfig.fastModel,
       thinkingLevel: "low",
       promptVersion: PARSE_NOTE_PROMPT_VERSION,
@@ -67,6 +70,8 @@ export const ai = {
     date: string;
     notes: string;
     existingDaily?: string | null;
+    userEdited?: boolean;
+    resolvedQuestions?: string;
   }) {
     return generateStructured({
       schema: DailySynthesisSchema,
@@ -84,6 +89,8 @@ export const ai = {
     existing: string | null;
     userEdited: boolean;
     recent: string;
+    priorClaims?: string;
+    resolvedQuestions?: string;
   }) {
     return generateStructured({
       schema: MemoryUpdateSchema,
@@ -92,6 +99,22 @@ export const ai = {
       thinkingLevel: "medium",
       promptVersion: COMPANY_MEMORY_PROMPT_VERSION,
       jobType: "update_company_memory",
+    });
+  },
+
+  detectClaimConflicts(input: {
+    ticker: string | null;
+    name: string;
+    newClaims: string;
+    priorClaims: string;
+  }) {
+    return generateStructured({
+      schema: ClaimConflictsSchema,
+      prompt: claimConflictsPrompt(input),
+      model: aiConfig.fastModel,
+      thinkingLevel: "low",
+      promptVersion: CLAIM_CONFLICTS_PROMPT_VERSION,
+      jobType: "detect_claim_conflicts",
     });
   },
 

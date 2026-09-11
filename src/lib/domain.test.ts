@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ParsedNoteSchema } from "@/ai/schemas/parsed-note";
-import { resolveCompanies } from "@/lib/entity-resolution";
+import { memoryUniverse, resolveCompanies } from "@/lib/entity-resolution";
 import { normalizeThemeName, pickExistingTheme } from "@/lib/theme-resolution";
 import { parseImportedMarkdown } from "@/lib/importer";
 import { hybridScore, looksLikeTickerQuery, recencyScore, type RankedHit } from "@/lib/ranking";
@@ -31,18 +31,25 @@ describe("ParsedNoteSchema", () => {
 });
 
 describe("entity resolution", () => {
-  it("maps CART to Maplebear", () => {
-    const { resolved } = resolveCompanies(
+  const universe = memoryUniverse([
+    { ticker: "CART", name: "Maplebear", aliases: ["Instacart"] },
+    { ticker: "ON", name: "ON Semiconductor", aliases: ["onsemi"] },
+  ]);
+
+  it("maps CART to Maplebear", async () => {
+    const { resolved } = await resolveCompanies(
       [{ name: null, ticker: "CART", confidence: 0.9 }],
       "CART — incremental margins may matter more than GMV",
+      universe,
     );
     expect(resolved[0]?.canonicalName).toBe("Maplebear");
   });
 
-  it("does not treat lowercase on as ticker ON", () => {
-    const { resolved, ambiguous } = resolveCompanies(
+  it("does not treat lowercase on as ticker ON", async () => {
+    const { resolved, ambiguous } = await resolveCompanies(
       [{ name: "ON Semiconductor", ticker: "ON", confidence: 0.6 }],
       "This depends on whether demand stays on platform.",
+      universe,
     );
     expect(resolved).toHaveLength(0);
     expect(ambiguous.length).toBeGreaterThan(0);
@@ -99,6 +106,7 @@ Durability of the advantage.
 describe("ranking", () => {
   it("prioritizes exact ticker matches", () => {
     expect(looksLikeTickerQuery("CART")).toBe(true);
+    expect(looksLikeTickerQuery("$NVTS")).toBe(true);
     const tickerHit: RankedHit = {
       id: "1",
       kind: "note",
