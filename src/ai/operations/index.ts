@@ -32,10 +32,10 @@ import {
 import { ParsedNoteSchema } from "@/ai/schemas/parsed-note";
 
 export const ai = {
-  parseNote(rawText: string, existingThemes: string[], attachedSources: AttachedSource[] = []) {
+  parseNote(rawText: string, existingThemes: string[], attachedSources: AttachedSource[] = [], taggedTickers: string[] = []) {
     return generateStructured({
       schema: ParsedNoteSchema,
-      prompt: parseNotePrompt(rawText, existingThemes, attachedSources),
+      prompt: parseNotePrompt(rawText, existingThemes, attachedSources, taggedTickers),
       model: aiConfig.fastModel,
       thinkingLevel: "low",
       promptVersion: PARSE_NOTE_PROMPT_VERSION,

@@ -5,7 +5,7 @@ import { completeJob, startJob } from "@/ai/jobs";
 import { StructuredOutputError } from "@/ai/aiService";
 import { resolveCompanies } from "@/lib/entity-resolution";
 import { normalizeThemeName, pickExistingTheme } from "@/lib/theme-resolution";
-import { lookupTicker } from "@/lib/tickers";
+import { extractCashtags, lookupTicker } from "@/lib/tickers";
 import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
 import { withUserAi } from "@/lib/ai-credentials";
@@ -327,6 +327,7 @@ async function processTextNoteBound(
         title: link.title,
         description: link.description,
       })),
+      extractCashtags(source),
     );
     const stored = await storeParsedStructures(supabase, {
       userId: note.user_id,

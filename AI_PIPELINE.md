@@ -32,7 +32,7 @@ Fast tasks request low thinking. Synthesis/discovery request medium thinking.
 
 Mechanical operations use Zod schemas. Invalid output is retried once with repair instructions. A second failure marks the job failed, preserves the note, and surfaces Inbox.
 
-Prompt versions (`parse-note-v2`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, and so on) are stored on `ai_jobs`.
+Prompt versions (`parse-note-v3`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, and so on) are stored on `ai_jobs`.
 
 ## Retrieval for memory updates
 

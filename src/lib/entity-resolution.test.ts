@@ -73,6 +73,17 @@ describe("entity resolution against SEC universe", () => {
     expect(ambiguous).toHaveLength(0);
     expect(resolved[0]?.ticker).toBe("NVTS");
   });
+
+  it("treats cashtags as authoritative, including $ON", async () => {
+    const { resolved, ambiguous } = await resolveCompanies(
+      [{ name: null, ticker: "ON", confidence: 0.4 }],
+      "bought $ON despite the noise",
+      universe,
+    );
+    expect(ambiguous).toHaveLength(0);
+    expect(resolved[0]?.ticker).toBe("ON");
+    expect(resolved[0]?.confidence).toBe(1);
+  });
 });
 
 describe("name matching helpers", () => {

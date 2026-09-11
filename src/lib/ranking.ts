@@ -14,7 +14,8 @@ export type RankedHit = {
 };
 
 export function looksLikeTickerQuery(query: string): boolean {
-  return /^[A-Z]{1,5}$/.test(query.trim());
+  const trimmed = query.trim().replace(/^\$/, "").toUpperCase();
+  return /^[A-Z]{1,5}(?:[.-][A-Z]{1,2})?$/.test(trimmed);
 }
 
 export function hybridScore(hit: RankedHit, query: string): number {

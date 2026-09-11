@@ -1,4 +1,5 @@
 import {
+  extractCashtags,
   isAmbiguousTickerToken,
   lookupCompanyByName,
   lookupTicker,
@@ -79,11 +80,33 @@ export async function resolveCompanyCandidate(
   candidate: ExtractedCompany,
   sourceText: string,
   universe: TickerUniverse = dbUniverse(),
+  options: { cashtag?: boolean } = {},
 ): Promise<ResolvedEntity | null> {
   const ticker = candidate.ticker?.trim().toUpperCase() || null;
   const known = ticker ? await universe.byTicker(ticker) : undefined;
   const confidence = candidate.confidence;
   const named = candidate.name?.trim() || null;
+
+  if (ticker && options.cashtag) {
+    if (known) {
+      return {
+        ticker: known.ticker,
+        canonicalName: known.name,
+        aliases: known.aliases,
+        confidence: 1,
+        ambiguous: false,
+        reason: "User cashtag.",
+      };
+    }
+    return {
+      ticker,
+      canonicalName: named ?? ticker,
+      aliases: named ? [named] : [],
+      confidence: 1,
+      ambiguous: true,
+      reason: "Cashtag is not in the SEC universe.",
+    };
+  }
 
   if (ticker && isAmbiguousTickerToken(ticker)) {
     const supported = sourceSupportsTicker(sourceText, ticker);
@@ -157,14 +180,27 @@ export async function resolveCompanies(
   const ambiguous: ResolvedEntity[] = [];
   const seen = new Set<string>();
 
-  for (const candidate of candidates) {
-    const result = await resolveCompanyCandidate(candidate, sourceText, universe);
-    if (!result) continue;
+  const remember = (result: ResolvedEntity) => {
     const key = `${result.ticker ?? ""}:${normalizeCompanyName(result.canonicalName)}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return;
     seen.add(key);
     if (result.ambiguous) ambiguous.push(result);
     else resolved.push(result);
+  };
+
+  for (const ticker of extractCashtags(sourceText)) {
+    const result = await resolveCompanyCandidate(
+      { name: null, ticker, confidence: 1 },
+      sourceText,
+      universe,
+      { cashtag: true },
+    );
+    if (result) remember(result);
+  }
+
+  for (const candidate of candidates) {
+    const result = await resolveCompanyCandidate(candidate, sourceText, universe);
+    if (result) remember(result);
   }
 
   return { resolved, ambiguous };

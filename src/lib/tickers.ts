@@ -163,3 +163,54 @@ const AMBIGUOUS_SHORT_TICKERS = new Set(["ON", "OR", "IT", "ALL", "A", "T", "C",
 export function isAmbiguousTickerToken(ticker: string): boolean {
   return AMBIGUOUS_SHORT_TICKERS.has(ticker.toUpperCase()) || ticker.length <= 2;
 }
+
+const CASHTAG_RE = /(?<![\w$])\$([A-Z]{1,5}(?:[.-][A-Z]{1,2})?)\b/g;
+const ACTIVE_CASHTAG_RE = /(?<![\w$])\$([A-Za-z][A-Za-z.-]*)$/;
+
+export function extractCashtags(text: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  for (const match of text.matchAll(CASHTAG_RE)) {
+    const ticker = match[1]?.toUpperCase();
+    if (!ticker || seen.has(ticker)) continue;
+    seen.add(ticker);
+    found.push(ticker);
+  }
+  return found;
+}
+
+export function activeCashtagQuery(text: string, cursor: number): { start: number; query: string } | null {
+  const before = text.slice(0, cursor);
+  const match = ACTIVE_CASHTAG_RE.exec(before);
+  if (!match || match.index === undefined) return null;
+  const query = match[1] ?? "";
+  if (!query || /^\d/.test(query)) return null;
+  return { start: match.index, query };
+}
+
+export function insertCashtag(text: string, start: number, cursor: number, ticker: string): string {
+  const tag = `$${ticker.toUpperCase()} `;
+  return `${text.slice(0, start)}${tag}${text.slice(cursor)}`;
+}
+
+export function cashtagSegments(
+  text: string,
+  hrefForTicker: (ticker: string) => string | undefined,
+): Array<{ type: "text" | "cashtag"; value: string; href?: string }> {
+  const parts: Array<{ type: "text" | "cashtag"; value: string; href?: string }> = [];
+  let last = 0;
+  for (const match of text.matchAll(CASHTAG_RE)) {
+    const index = match.index ?? 0;
+    if (index > last) parts.push({ type: "text", value: text.slice(last, index) });
+    const display = match[0];
+    const ticker = match[1]?.toUpperCase();
+    parts.push({
+      type: "cashtag",
+      value: display,
+      href: ticker ? hrefForTicker(ticker) : undefined,
+    });
+    last = index + display.length;
+  }
+  if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
+  return parts.length ? parts : [{ type: "text", value: text }];
+}

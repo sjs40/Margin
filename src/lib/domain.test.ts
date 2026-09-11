@@ -106,6 +106,7 @@ Durability of the advantage.
 describe("ranking", () => {
   it("prioritizes exact ticker matches", () => {
     expect(looksLikeTickerQuery("CART")).toBe(true);
+    expect(looksLikeTickerQuery("$NVTS")).toBe(true);
     const tickerHit: RankedHit = {
       id: "1",
       kind: "note",

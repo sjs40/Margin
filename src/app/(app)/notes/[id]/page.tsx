@@ -90,7 +90,17 @@ export default async function NotePage({
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Raw source
         </h2>
-        {note.raw_text ? <LinkifiedText text={note.raw_text} /> : <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>}
+        {note.raw_text ? (
+          <LinkifiedText
+            text={note.raw_text}
+            companies={(companies ?? []).flatMap((row) => {
+              const entity = Array.isArray(row.entities) ? row.entities[0] : row.entities;
+              return entity ? [{ id: entity.id, ticker: entity.ticker }] : [];
+            })}
+          />
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>
+        )}
       </section>
       <NoteAnnotations noteId={note.id} annotations={annotations ?? []} />
       <MetaList

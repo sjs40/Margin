@@ -9,7 +9,7 @@ Rules:
 - Avoid false precision.
 - Return schema-compliant JSON only.`;
 
-export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v2";
+export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v3";
 
 export type AttachedSource = {
   url: string;
@@ -36,6 +36,7 @@ export function parseNotePrompt(
   rawText: string,
   existingThemes: string[],
   attachedSources: AttachedSource[] = [],
+  taggedTickers: string[] = [],
 ): string {
   return `${ANALYST_PREAMBLE}
 
@@ -46,6 +47,10 @@ If there is no reliable claim, return an empty claims array.
 
 Existing themes the user already tracks (prefer linking rather than inventing synonyms):
 ${existingThemes.length ? existingThemes.map((theme) => `- ${theme}`).join("\n") : "- none yet"}
+
+User-tagged tickers:
+${taggedTickers.length ? taggedTickers.map((ticker) => `- $${ticker}`).join("\n") : "- none"}
+Do not second-guess these cashtags. Include them in companies with high confidence.
 
 ${attachedSourcesBlock(attachedSources)}Source note:
 """
