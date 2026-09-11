@@ -20,10 +20,10 @@ import {
   themeMemoryPrompt,
   type AttachedSource,
 } from "@/ai/prompts";
+import { AskAnswerSchema } from "@/ai/schemas/ask";
 import { HandwritingSchema } from "@/ai/schemas/handwriting";
 import { ClaimConflictsSchema } from "@/ai/schemas/claim-conflicts";
 import {
-  AskAnswerSchema,
   ConnectionDiscoverySchema,
   DailySynthesisSchema,
   MemoryUpdateSchema,

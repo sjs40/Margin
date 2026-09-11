@@ -32,7 +32,7 @@ Fast tasks request low thinking. Synthesis/discovery request medium thinking.
 
 Mechanical operations use Zod schemas. Invalid output is retried once with repair instructions. A second failure marks the job failed, preserves the note, and surfaces Inbox.
 
-Prompt versions (`parse-note-v3`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, and so on) are stored on `ai_jobs`.
+Prompt versions (`parse-note-v3`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, `ask-margin-v2`) are stored on `ai_jobs`.
 
 ## Retrieval for memory updates
 
@@ -55,7 +55,9 @@ After entities are linked, the pipeline stamps `note_entities` with a capture-ti
 
 ## Hybrid search
 
-Lexical + ticker/entity match + vector similarity + recency. Ticker-shaped queries overweight exact entity matches. Ask Margin synthesizes only from retrieved user memory and returns source ids.
+Lexical + ticker/entity match + vector similarity + recency. Ticker-shaped queries (including `$NVTS`) overweight exact entity matches. Ask Margin (`ask-margin-v2`) synthesizes only from retrieved user memory and cites sources inline with `[[n]]`. Invalid citation numbers are stripped.
+
+Theme merge sets `meta_notes.needs_refresh`. Nightly intelligence and Today refresh regenerate flagged company/theme/daily memory and clear the flag.
 
 ## Cost
 

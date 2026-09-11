@@ -20,8 +20,12 @@ export type VectorMatch = {
 };
 
 export function looksLikeTickerQuery(query: string): boolean {
+  return normalizedTickerQuery(query) !== null;
+}
+
+export function normalizedTickerQuery(query: string): string | null {
   const trimmed = query.trim().replace(/^\$/, "").toUpperCase();
-  return /^[A-Z]{1,5}(?:[.-][A-Z]{1,2})?$/.test(trimmed);
+  return /^[A-Z]{1,5}(?:[.-][A-Z]{1,2})?$/.test(trimmed) ? trimmed : null;
 }
 
 export function hybridScore(hit: RankedHit, query: string): number {
@@ -79,8 +83,9 @@ export function rankHits(hits: RankedHit[], query: string): RankedHit[] {
 }
 
 export function tickerEntityScore(query: string, tickers: readonly string[]): number {
-  if (!looksLikeTickerQuery(query)) return 0;
-  return tickers.includes(query.trim().toUpperCase()) ? 1 : 0;
+  const symbol = normalizedTickerQuery(query);
+  if (!symbol) return 0;
+  return tickers.includes(symbol) ? 1 : 0;
 }
 
 export function groupTickersByOwner(
@@ -164,8 +169,8 @@ export function formatMemoryContext(hits: RankedHit[], limit = 12): string {
   return hits
     .slice(0, limit)
     .map(
-      (hit) =>
-        `SOURCE id=${hit.id} kind=${hit.kind} date=${hit.date ?? ""} title=${hit.title}\n${hit.snippet}`,
+      (hit, offset) =>
+        `[${offset + 1}] id=${hit.id} kind=${hit.kind} date=${hit.date ?? ""} title=${hit.title}\n${hit.snippet}`,
     )
     .join("\n\n");
 }

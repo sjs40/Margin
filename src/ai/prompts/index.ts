@@ -242,7 +242,7 @@ ${input.notes}
 """`;
 }
 
-export const ASK_PROMPT_VERSION = "answer-from-memory-v1";
+export const ASK_PROMPT_VERSION = "ask-margin-v2";
 
 export function askFromMemoryPrompt(input: {
   question: string;
@@ -250,9 +250,13 @@ export function askFromMemoryPrompt(input: {
 }): string {
   return `${ANALYST_PREAMBLE}
 
-Answer using only the analyst's own notes below. If the notes do not support an answer, say so.
-Distinguish synthesis from source material. Do not use world knowledge.
-Cite sources by the provided ids. Never fabricate references.
+Answer using only the numbered sources below. Do not use world knowledge.
+Cite inline with [[n]] where n is the 1-based source number. Do not cite by id.
+Every factual sentence needs at least one citation.
+Omit anything the sources do not support.
+If the retrieved memory does not answer the question, reply with one sentence saying so and stop.
+Do not append a source list. Citations belong inline only.
+Return citedIndices as the unique source numbers you actually cited.
 
 Question:
 ${input.question}
