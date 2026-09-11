@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
+import { normalizeThemeName } from "@/lib/theme-resolution";
 
 export type LooseEndKind = "question" | "followup";
 
@@ -103,4 +104,47 @@ export async function searchRecentNotes(query: string) {
   if (q) request = request.ilike("title", `%${q}%`);
   const { data } = await request;
   return data ?? [];
+}
+
+export async function mergeThemes(sourceId: string, targetId: string) {
+  const { supabase, user } = await requireUser();
+  if (!sourceId || !targetId || sourceId === targetId) return { error: "Pick two different themes." };
+  const { error } = await supabase.rpc("merge_themes", {
+    source: sourceId,
+    target: targetId,
+    owner: user.id,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/research");
+  revalidatePath(`/research/themes/${sourceId}`);
+  revalidatePath(`/research/themes/${targetId}`);
+  revalidatePath("/inbox");
+  return { ok: true, targetId };
+}
+
+export async function mergeSuggestedTheme(name: string, targetId: string) {
+  const { supabase, user } = await requireUser();
+  const trimmed = name.trim();
+  if (!trimmed || !targetId) return { error: "Pick a theme to merge into." };
+  const { data: created, error: createError } = await supabase
+    .from("themes")
+    .insert({
+      user_id: user.id,
+      name: trimmed,
+      normalized_name: normalizeThemeName(trimmed),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (createError || !created) {
+    const { data: existing } = await supabase
+      .from("themes")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("normalized_name", normalizeThemeName(trimmed))
+      .maybeSingle();
+    if (!existing) return { error: createError?.message ?? "Could not create suggested theme." };
+    return mergeThemes(existing.id, targetId);
+  }
+  return mergeThemes(created.id, targetId);
 }

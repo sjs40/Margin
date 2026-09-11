@@ -4,8 +4,8 @@ import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
 import { StructuredOutputError } from "@/ai/aiService";
 import { resolveCompanies } from "@/lib/entity-resolution";
-import { normalizeThemeName, pickExistingTheme } from "@/lib/theme-resolution";
-import { extractCashtags, lookupTicker } from "@/lib/tickers";
+import { normalizeThemeName, pickExistingTheme, formatThemePromptLine, findSimilarTheme } from "@/lib/theme-resolution";
+import { asAliasList, extractCashtags, lookupTicker } from "@/lib/tickers";
 import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
 import { withUserAi } from "@/lib/ai-credentials";
@@ -21,10 +21,13 @@ type Admin = ReturnType<typeof createAdminClient>;
 async function themeNames(supabase: Admin, userId: string) {
   const { data } = await supabase
     .from("themes")
-    .select("id, name, normalized_name, status")
+    .select("id, name, normalized_name, status, aliases")
     .eq("user_id", userId)
     .neq("status", "archived");
-  return data ?? [];
+  return (data ?? []).map((theme) => ({
+    ...theme,
+    aliases: asAliasList(theme.aliases),
+  }));
 }
 
 async function upsertCompany(
@@ -81,12 +84,15 @@ async function resolveThemesForUser(
       continue;
     }
     if (theme.confidence < 0.8) {
+      const similar = findSimilarTheme(theme.name, existing);
       await supabase.from("inbox_items").insert({
         user_id: userId,
         category: "suggested_theme",
         title: `Suggested theme: ${theme.name}`,
-        body: "This concept appeared in a note but was not automatically created.",
-        payload: { name: theme.name, confidence: theme.confidence },
+        body: similar
+          ? `Similar to existing theme: ${similar.name}`
+          : "This concept appeared in a note but was not automatically created.",
+        payload: { name: theme.name, confidence: theme.confidence, similarThemeId: similar?.id ?? null },
       });
       continue;
     }
@@ -106,6 +112,7 @@ async function resolveThemesForUser(
       name: data.name,
       normalized_name: normalizeThemeName(theme.name),
       status: "active",
+      aliases: [],
     });
     linked.push({ id: data.id, name: data.name, confidence: theme.confidence, created: true });
   }
@@ -321,7 +328,7 @@ async function processTextNoteBound(
     const source = note.raw_text ?? "";
     const parsed = await ai.parseNote(
       source,
-      existing.map((theme) => theme.name),
+      existing.map((theme) => formatThemePromptLine(theme)),
       links.map((link) => ({
         url: link.canonical_url ?? link.url,
         title: link.title,
@@ -535,7 +542,7 @@ async function processDocumentBound(
     const existing = await themeNames(supabase, document.user_id);
     const parsed = await ai.parseAIImport(
       document.raw_content,
-      existing.map((theme) => theme.name),
+      existing.map((theme) => formatThemePromptLine(theme)),
     );
     await storeParsedStructures(supabase, {
       userId: document.user_id,

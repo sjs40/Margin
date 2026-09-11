@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MetaNoteEditor } from "@/features/meta-notes/meta-note-editor";
 import { MetaNoteHistory } from "@/features/meta-notes/meta-note-history";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
+import { MergeThemeControl } from "@/features/research/merge-theme-control";
 
 export default async function ThemePage({
   params,
@@ -16,6 +17,7 @@ export default async function ThemePage({
   const supabase = await createClient();
   const { data: theme } = await supabase.from("themes").select("*").eq("id", id).single();
   if (!theme) notFound();
+  if (theme.merged_into_theme_id) redirect(`/research/themes/${theme.merged_into_theme_id}`);
   const { data: meta } = await supabase
     .from("meta_notes")
     .select("*")
@@ -42,6 +44,12 @@ export default async function ThemePage({
     .filter((note): note is NonNullable<typeof note> => Boolean(note))
     .sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
 
+  const { data: otherThemes } = await supabase
+    .from("themes")
+    .select("id, name")
+    .eq("status", "active")
+    .neq("id", id)
+    .order("name");
   const { data: openQuestions } = await supabase
     .from("questions")
     .select("*")
@@ -56,8 +64,12 @@ export default async function ThemePage({
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-serif text-4xl">{theme.name}</h1>
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <ExportLink href={`/api/export/theme/${theme.id}`} label="Export" />
+        <MergeThemeControl
+          themeId={theme.id}
+          themes={(otherThemes ?? []).map((item) => ({ id: item.id, name: item.name }))}
+        />
       </div>
       <div className="mt-8">
         {meta?.current_content ? (

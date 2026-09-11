@@ -41,6 +41,7 @@ Never commit `.env.local`.
 - `supabase/migrations/0007_loose_ends_workflow.sql`
 - `supabase/migrations/0008_note_annotations.sql`
 - `supabase/migrations/0009_price_stamps.sql`
+- `supabase/migrations/0010_theme_merge.sql`
 
 The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 

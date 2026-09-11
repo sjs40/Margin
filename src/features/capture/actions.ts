@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processDocument, processHandwrittenNote, processTextNote } from "@/ai/pipeline/process";
-import { upsertDailyMetaNote } from "@/ai/pipeline/memory";
+import { refreshFlaggedMetaNotes, upsertDailyMetaNote } from "@/ai/pipeline/memory";
 import { parseImportedMarkdown } from "@/lib/importer";
 import { withUserAi } from "@/lib/ai-credentials";
 import { saveMetaNoteEdit } from "@/features/meta-notes/actions";
@@ -145,7 +145,10 @@ export async function importResearchDocument(raw: string) {
 export async function refreshToday() {
   const { user } = await requireUser();
   after(async () => {
-    await withUserAi(user.id, { consume: true }, () => upsertDailyMetaNote(user.id, new Date()));
+    await withUserAi(user.id, { consume: true }, async () => {
+      await upsertDailyMetaNote(user.id, new Date());
+      await refreshFlaggedMetaNotes(user.id);
+    });
   });
   revalidatePath("/today");
   return { ok: true };

@@ -8,6 +8,8 @@ import { logger } from "@/lib/logger";
 import { filterValidConflicts } from "@/lib/claims";
 import { formatResolvedThreads } from "@/lib/loose-ends";
 import { getUserSettings } from "@/lib/user-settings";
+import { formatThemePromptLine } from "@/lib/theme-resolution";
+import { asAliasList } from "@/lib/tickers";
 
 type MemoryNote = {
   id: string;
@@ -134,6 +136,7 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
       date: day,
       title: result.data.title,
       current_content: result.data.content,
+      needs_refresh: false,
       updated_at: new Date().toISOString(),
     };
     const { data: saved, error } = existing
@@ -411,6 +414,7 @@ export async function updateCompanyMeta(userId: string, entityId: string, trigge
     entity_id: entityId,
     title: result.data.title || entity.ticker || entity.canonical_name,
     current_content: result.data.content,
+    needs_refresh: false,
     updated_at: new Date().toISOString(),
   };
   const { data: saved } = existing
@@ -444,7 +448,15 @@ export async function updateThemeMeta(userId: string, themeId: string) {
   const { data: theme } = await supabase.from("themes").select("*").eq("id", themeId).single();
   if (!theme) return;
   const notes = await relevantNotesForTheme(userId, themeId);
-  if (notes.length === 0) return;
+  if (notes.length === 0) {
+    await supabase
+      .from("meta_notes")
+      .update({ needs_refresh: false, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("meta_type", "theme")
+      .eq("theme_id", themeId);
+    return;
+  }
   const { data: existing } = await supabase
     .from("meta_notes")
     .select("*")
@@ -464,6 +476,7 @@ export async function updateThemeMeta(userId: string, themeId: string) {
     theme_id: themeId,
     title: result.data.title || theme.name,
     current_content: result.data.content,
+    needs_refresh: false,
     updated_at: new Date().toISOString(),
   };
   const { data: saved } = existing
@@ -516,13 +529,15 @@ export async function discoverAndInbox(userId: string) {
     .limit(40);
   const { data: themes } = await supabase
     .from("themes")
-    .select("name")
+    .select("name, aliases")
     .eq("user_id", userId)
     .eq("status", "active");
   if (!notes?.length) return;
   const result = await ai.discoverConnections({
     notes: notes.map(formatNote).join("\n\n"),
-    existingThemes: (themes ?? []).map((theme) => theme.name),
+    existingThemes: (themes ?? []).map((theme) =>
+      formatThemePromptLine({ name: theme.name, aliases: asAliasList(theme.aliases) }),
+    ),
   });
   for (const theme of result.data.emergingThemes) {
     await supabase.from("inbox_items").insert({
@@ -536,9 +551,32 @@ export async function discoverAndInbox(userId: string) {
   return result.data;
 }
 
+export async function refreshFlaggedMetaNotes(userId: string) {
+  const supabase = createAdminClient();
+  const { data: flagged } = await supabase
+    .from("meta_notes")
+    .select("meta_type, entity_id, theme_id, date")
+    .eq("user_id", userId)
+    .eq("needs_refresh", true);
+  for (const row of flagged ?? []) {
+    if (row.meta_type === "theme" && row.theme_id) {
+      await updateThemeMeta(userId, row.theme_id);
+      continue;
+    }
+    if (row.meta_type === "company" && row.entity_id) {
+      await updateCompanyMeta(userId, row.entity_id);
+      continue;
+    }
+    if (row.meta_type === "daily" && row.date) {
+      await upsertDailyMetaNote(userId, new Date(`${row.date}T12:00:00.000Z`));
+    }
+  }
+}
+
 export async function runNightlyIntelligence(userId: string, date = new Date()) {
   logger.info("nightly_intelligence_started", { userId });
   const daily = await upsertDailyMetaNote(userId, date);
+  await refreshFlaggedMetaNotes(userId);
   await discoverAndInbox(userId);
   logger.info("nightly_intelligence_completed", { userId });
   return daily;

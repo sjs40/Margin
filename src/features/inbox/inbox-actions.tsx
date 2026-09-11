@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resolveInboxItem, searchCompaniesAction } from "@/features/capture/actions";
+import { mergeSuggestedTheme } from "@/features/research/actions";
 
 type Item = {
   id: string;
@@ -14,13 +15,20 @@ type Item = {
 
 type SearchHit = { id: string; ticker: string | null; name: string };
 
-export function InboxActions({ item }: { item: Item }) {
+export function InboxActions({
+  item,
+  themes = [],
+}: {
+  item: Item;
+  themes?: Array<{ id: string; name: string }>;
+}) {
   const [query, setQuery] = useState(
     String(item.payload.ticker ?? item.payload.canonicalName ?? ""),
   );
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [createName, setCreateName] = useState(String(item.payload.canonicalName ?? ""));
   const [createTicker, setCreateTicker] = useState(String(item.payload.ticker ?? ""));
+  const [mergeTarget, setMergeTarget] = useState(String(item.payload.similarThemeId ?? themes[0]?.id ?? ""));
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
 
@@ -59,12 +67,44 @@ export function InboxActions({ item }: { item: Item }) {
   return (
     <div className="mt-3 space-y-3">
       {item.category === "suggested_theme" ? (
-        <Button
-          className="min-h-11 md:h-8 md:min-h-8"
-          onClick={() => void run("accept_theme", { name: String(item.payload.name ?? "") })}
-        >
-          Create theme
-        </Button>
+        <div className="space-y-2">
+          <Button
+            className="min-h-11 md:h-8 md:min-h-8"
+            onClick={() => void run("accept_theme", { name: String(item.payload.name ?? "") })}
+          >
+            Create theme
+          </Button>
+          {themes.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="min-h-11 rounded-md border border-border bg-background px-2 text-sm md:h-8 md:min-h-8"
+                value={mergeTarget}
+                onChange={(event) => setMergeTarget(event.target.value)}
+              >
+                {themes.map((theme) => (
+                  <option key={theme.id} value={theme.id}>
+                    {theme.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                className="min-h-11 md:h-8 md:min-h-8"
+                variant="outline"
+                onClick={async () => {
+                  setError(null);
+                  const result = await mergeSuggestedTheme(String(item.payload.name ?? ""), mergeTarget);
+                  if (result && "error" in result && result.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  await run("dismiss");
+                }}
+              >
+                Merge into existing…
+              </Button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {item.category === "ambiguous_entity" ? (
         <div className="space-y-3 rounded-lg border border-border p-3">

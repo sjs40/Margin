@@ -242,7 +242,7 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
         .order("captured_at", { ascending: false })
         .limit(RECENCY_DOCUMENT_LIMIT),
       supabase.from("entities").select("id, ticker, canonical_name").eq("entity_type", "company"),
-      supabase.from("themes").select("id, name, description").eq("user_id", userId),
+      supabase.from("themes").select("id, name, description").eq("user_id", userId).eq("status", "active"),
     ]);
 
   let noteRows = uniqueById((recentNotes ?? []) as NoteRow[]);
