@@ -9,6 +9,7 @@ import { SourceCards } from "@/features/links/source-card";
 import { LinkifiedText } from "@/components/linkified-text";
 import { AddLooseEnd, LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { NoteAnnotations } from "@/features/notes/note-annotations";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
@@ -20,7 +21,7 @@ export default async function NotePage({
   const supabase = await createClient();
   const { data: note } = await supabase.from("notes").select("*").eq("id", id).single();
   if (!note) notFound();
-  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }, { data: links }] =
+  const [{ data: companies }, { data: themes }, { data: questions }, { data: followups }, { data: claims }, { data: links }, { data: annotations }] =
     await Promise.all([
       supabase
         .from("note_entities")
@@ -31,6 +32,11 @@ export default async function NotePage({
       supabase.from("followups").select("*").eq("note_id", id),
       supabase.from("claims").select("*").eq("note_id", id),
       supabase.from("note_links").select("*").eq("note_id", id).order("created_at", { ascending: true }),
+      supabase
+        .from("note_annotations")
+        .select("id, text, created_at, parent_annotation_id")
+        .eq("note_id", id)
+        .order("created_at", { ascending: true }),
     ]);
 
   let imageUrl: string | null = null;
@@ -85,6 +91,7 @@ export default async function NotePage({
         </h2>
         {note.raw_text ? <LinkifiedText text={note.raw_text} /> : <p className="mt-2 text-sm text-muted-foreground">No raw text.</p>}
       </section>
+      <NoteAnnotations noteId={note.id} annotations={annotations ?? []} />
       <MetaList
         title="Companies"
         items={(companies ?? []).map((row) => {

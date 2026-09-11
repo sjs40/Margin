@@ -226,6 +226,31 @@ async function storeParsedStructures(
   return { resolved, themes, entityIds };
 }
 
+export async function reembedNoteWithAnnotations(noteId: string) {
+  const supabase = createAdminClient();
+  const { data: note } = await supabase.from("notes").select("id, user_id, raw_text, interpreted_text").eq("id", noteId).single();
+  if (!note) return;
+  const { data: annotations } = await supabase
+    .from("note_annotations")
+    .select("text, created_at")
+    .eq("note_id", noteId)
+    .order("created_at", { ascending: true });
+  const extra = (annotations ?? [])
+    .map((row) => `User annotation (${row.created_at.slice(0, 10)}): ${row.text}`)
+    .join("\n");
+  const content = [note.interpreted_text || note.raw_text || "", extra].filter(Boolean).join("\n\n");
+  await withUserAi(note.user_id, { consume: false }, async () => {
+    await upsertEmbedding(supabase, {
+      userId: note.user_id,
+      sourceType: "note",
+      sourceId: noteId,
+      chunkIndex: 0,
+      content,
+      metadata: { annotations: (annotations ?? []).length },
+    });
+  });
+}
+
 async function upsertEmbedding(
   supabase: Admin,
   input: {

@@ -70,6 +70,7 @@ export const ai = {
     date: string;
     notes: string;
     existingDaily?: string | null;
+    userEdited?: boolean;
     resolvedQuestions?: string;
   }) {
     return generateStructured({

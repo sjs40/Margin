@@ -9,6 +9,7 @@ import { processDocument, processHandwrittenNote, processTextNote } from "@/ai/p
 import { upsertDailyMetaNote } from "@/ai/pipeline/memory";
 import { parseImportedMarkdown } from "@/lib/importer";
 import { withUserAi } from "@/lib/ai-credentials";
+import { saveMetaNoteEdit } from "@/features/meta-notes/actions";
 
 export async function createTextNote(rawText: string, sourceType: "typed" | "dictated" | "longform" = "typed") {
   const text = rawText.trim();
@@ -151,20 +152,7 @@ export async function refreshToday() {
 }
 
 export async function updateMetaNote(id: string, content: string) {
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase
-    .from("meta_notes")
-    .update({
-      current_content: content,
-      user_edited: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
-  if (error) return { error: error.message };
-  revalidatePath("/research");
-  revalidatePath("/today");
-  return { ok: true };
+  return saveMetaNoteEdit(id, content);
 }
 
 export async function searchCompaniesAction(query: string) {

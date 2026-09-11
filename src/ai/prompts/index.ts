@@ -84,12 +84,13 @@ ${raw}
 """`;
 }
 
-export const DAILY_SYNTHESIS_PROMPT_VERSION = "daily-synthesis-v2";
+export const DAILY_SYNTHESIS_PROMPT_VERSION = "daily-synthesis-v3";
 
 export function dailySynthesisPrompt(input: {
   date: string;
   notes: string;
   existingDaily?: string | null;
+  userEdited?: boolean;
   resolvedQuestions?: string;
 }): string {
   return `${ANALYST_PREAMBLE}
@@ -100,6 +101,7 @@ Group related notes. Identify learnings, view changes, contradictions, open ques
 Do not manufacture content to fill sections. Omit empty sections.
 Do not write a chronological "first you discussed..." recap.
 If an existing daily note is provided, update it rather than wiping user wording.
+${input.userEdited ? "The user has edited this page. Preserve established statements unless new evidence changes them." : ""}
 
 Existing daily note:
 """

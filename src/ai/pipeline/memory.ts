@@ -9,14 +9,41 @@ import { filterValidConflicts } from "@/lib/claims";
 import { formatResolvedThreads } from "@/lib/loose-ends";
 import { getUserSettings } from "@/lib/user-settings";
 
-function formatNote(note: {
+type MemoryNote = {
   id: string;
   captured_at: string;
   title: string | null;
   interpreted_text: string | null;
   raw_text: string | null;
-}) {
-  return `[${note.captured_at}] (${note.id}) ${note.title ?? ""}\n${note.interpreted_text ?? note.raw_text ?? ""}`;
+  annotations?: Array<{ text: string; created_at: string }>;
+};
+
+function formatNote(note: MemoryNote) {
+  const body = `[${note.captured_at}] (${note.id}) ${note.title ?? ""}\n${note.interpreted_text ?? note.raw_text ?? ""}`;
+  const extra = (note.annotations ?? [])
+    .map((row) => `User annotation (${row.created_at.slice(0, 10)}): ${row.text}`)
+    .join("\n");
+  return extra ? `${body}\n${extra}` : body;
+}
+
+async function attachAnnotations(notes: MemoryNote[]): Promise<MemoryNote[]> {
+  if (notes.length === 0) return notes;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("note_annotations")
+    .select("note_id, text, created_at")
+    .in(
+      "note_id",
+      notes.map((note) => note.id),
+    )
+    .order("created_at", { ascending: true });
+  const byNote = new Map<string, Array<{ text: string; created_at: string }>>();
+  for (const row of data ?? []) {
+    const list = byNote.get(row.note_id) ?? [];
+    list.push({ text: row.text, created_at: row.created_at });
+    byNote.set(row.note_id, list);
+  }
+  return notes.map((note) => ({ ...note, annotations: byNote.get(note.id) ?? [] }));
 }
 
 async function nextVersion(metaNoteId: string) {
@@ -77,8 +104,9 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
     .eq("date", day)
     .maybeSingle();
 
+  const annotatedNotes = await attachAnnotations(notes ?? []);
   const material = [
-    ...(notes ?? []).map(formatNote),
+    ...annotatedNotes.map(formatNote),
     ...(documents ?? []).map((doc) =>
       `[${doc.captured_at}] document ${doc.id} ${doc.title ?? ""}\n${doc.interpreted_content ?? doc.raw_content}`,
     ),
@@ -97,6 +125,7 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
       date: day,
       notes: material,
       existingDaily: existing?.current_content,
+      userEdited: Boolean(existing?.user_edited),
       resolvedQuestions: await loadResolvedThreads(userId) || undefined,
     });
     const payload = {
@@ -149,7 +178,7 @@ async function relevantNotesForEntity(userId: string, entityId: string) {
     .in("id", ids)
     .order("captured_at", { ascending: false })
     .limit(retrievalLimits.recentNotes);
-  return notes ?? [];
+  return attachAnnotations(notes ?? []);
 }
 
 async function relevantNotesForTheme(userId: string, themeId: string) {
@@ -167,7 +196,7 @@ async function relevantNotesForTheme(userId: string, themeId: string) {
     .in("id", ids)
     .order("captured_at", { ascending: false })
     .limit(retrievalLimits.recentNotes);
-  return notes ?? [];
+  return attachAnnotations(notes ?? []);
 }
 
 type ClaimSnippet = {

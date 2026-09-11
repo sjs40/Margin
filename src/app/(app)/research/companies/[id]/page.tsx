@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Markdown } from "@/components/markdown";
+import { MetaNoteEditor } from "@/features/meta-notes/meta-note-editor";
+import { MetaNoteHistory } from "@/features/meta-notes/meta-note-history";
 import { formatLongDate } from "@/lib/dates";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
 import { LooseEndRow } from "@/features/research/loose-end-row";
@@ -106,7 +107,7 @@ export default async function CompanyPage({
         <h1 className="mt-2 font-serif text-4xl">{entity.canonical_name}</h1>
         <div className="mt-8">
           {meta?.current_content ? (
-            <Markdown content={meta.current_content} />
+            <MetaNoteEditor id={meta.id} content={meta.current_content} />
           ) : (
             <p className="text-sm text-muted-foreground">
               Early research / no company memory yet.
@@ -149,20 +150,16 @@ export default async function CompanyPage({
             </li>
           ))}
         </ul>
-        {versions && versions.length > 0 ? (
-          <div className="mt-10">
-            <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              History
-            </h2>
-            <ul className="mt-4 space-y-3 text-sm">
-              {versions.map((version) => (
-                <li key={version.id}>
-                  <p className="font-mono text-[11px]">v{version.version_number}</p>
-                  <p className="text-muted-foreground">{version.change_summary}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {versions && versions.length > 0 && meta ? (
+          <MetaNoteHistory
+            currentContent={meta.current_content}
+            versions={versions.map((version) => ({
+              id: version.id,
+              version_number: version.version_number,
+              content: version.content,
+              change_summary: version.change_summary,
+            }))}
+          />
         ) : null}
       </aside>
     </div>

@@ -22,8 +22,9 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `user_settings` | Per-user pipeline knobs (contradiction detection). Missing row means defaults. |
 | `questions` | Open / resolved / dismissed, with `resolution_comment`, `resolved_by_note_id`, `entity_id`, `theme_id`, `source` |
 | `followups` | Lightweight follow-ups with the same resolution fields as questions |
-| `meta_notes` | Daily, company, and theme memory |
-| `meta_note_versions` | Historical evolution |
+| `meta_notes` | Daily, company, and theme memory. `user_edited` is set when the owner saves the page. |
+| `meta_note_versions` | Historical evolution, including user edits |
+| `note_annotations` | Nested comments on a note (not parsed as new notes) |
 | `ai_jobs` | Processing ledger |
 | `embeddings` | pgvector retrieval records |
 | `inbox_items` | Ambiguity, failures, suggested themes |

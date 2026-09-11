@@ -12,7 +12,7 @@ export default async function HomePage() {
   const { data } = auth.user
     ? await supabase
         .from("notes")
-        .select("*, note_links(url, title)")
+        .select("*, note_links(url, title), note_annotations(id)")
         .eq("user_id", auth.user.id)
         .gte("captured_at", startOfDayIso())
         .order("captured_at", { ascending: false })
