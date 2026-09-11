@@ -44,7 +44,7 @@ Owner policies use `user_id = auth.uid()` (or a join to the owning note/document
 
 Company lookup RPCs (authenticated + service role): `lookup_company(q)`, `search_companies(q, lim)`, `search_companies_by_name(q)`.
 
-Theme merge RPC (authenticated + service role): `merge_themes(source, target, owner)` repoints notes/claims/questions/followups, appends the source name to target aliases, archives the source, and flags the surviving meta note for refresh.
+Theme merge RPC (authenticated + service role): `merge_themes(source, target, owner)` repoints notes/claims/questions/followups, appends the source name to target aliases, archives the source, and flags the surviving meta note for refresh. Parameter names are copied to locals so they do not collide with `questions.source` / `followups.source`.
 
 ## Idempotency
 
