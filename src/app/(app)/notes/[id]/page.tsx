@@ -7,6 +7,8 @@ import { formatLongDate } from "@/lib/dates";
 import { RetryNoteButton } from "@/features/notes/retry-button";
 import { SourceCards } from "@/features/links/source-card";
 import { LinkifiedText } from "@/components/linkified-text";
+import { AddLooseEnd, LooseEndRow } from "@/features/research/loose-end-row";
+import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
@@ -99,8 +101,25 @@ export default async function NotePage({
           return theme ? { href: `/research/themes/${theme.id}`, label: theme.name } : null;
         })}
       />
-      <SimpleList title="Questions" items={(questions ?? []).map((item) => item.question_text)} />
-      <SimpleList title="Follow-ups" items={(followups ?? []).map((item) => item.text)} />
+      <section className="mt-8">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Questions
+        </h2>
+        <ul className="mt-2 space-y-4">
+          {(questions ?? []).map((item) => (
+            <LooseEndRow key={item.id} contextNoteId={note.id} item={mapQuestion(item)} />
+          ))}
+        </ul>
+        <h2 className="mt-8 font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Follow-ups
+        </h2>
+        <ul className="mt-2 space-y-4">
+          {(followups ?? []).map((item) => (
+            <LooseEndRow key={item.id} contextNoteId={note.id} item={mapFollowup(item)} />
+          ))}
+        </ul>
+        <AddLooseEnd noteId={note.id} />
+      </section>
       <SimpleList title="Claims" items={(claims ?? []).map((item) => `${item.claim_type}: ${item.claim_text}`)} />
     </div>
   );

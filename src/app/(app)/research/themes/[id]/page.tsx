@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Markdown } from "@/components/markdown";
+import { LooseEndRow } from "@/features/research/loose-end-row";
+import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 
 export default async function ThemePage({
   params,
@@ -31,6 +33,17 @@ export default async function ThemePage({
     .filter((note): note is NonNullable<typeof note> => Boolean(note))
     .sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
 
+  const { data: openQuestions } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("theme_id", id)
+    .eq("status", "open");
+  const { data: openFollowups } = await supabase
+    .from("followups")
+    .select("*")
+    .eq("theme_id", id)
+    .eq("status", "open");
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-serif text-4xl">{theme.name}</h1>
@@ -41,6 +54,17 @@ export default async function ThemePage({
           <p className="text-sm text-muted-foreground">No theme memory yet.</p>
         )}
       </div>
+      <h2 className="mt-10 font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        Open questions
+      </h2>
+      <ul className="mt-4 space-y-4">
+        {(openQuestions ?? []).map((item) => (
+          <LooseEndRow key={item.id} item={mapQuestion(item)} />
+        ))}
+        {(openFollowups ?? []).map((item) => (
+          <LooseEndRow key={item.id} item={mapFollowup(item)} />
+        ))}
+      </ul>
       <h2 className="mt-10 font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         Recent research
       </h2>

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NoteFeed } from "@/features/notes/note-feed";
 import { Markdown } from "@/components/markdown";
 import { RefreshTodayButton } from "@/features/meta-notes/refresh-today-button";
-import { LooseEnds } from "@/features/research/loose-ends";
+import { LooseEnds, mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { startOfDayIso } from "@/lib/dates";
 import { dailyKey } from "@/lib/dates";
 import type { FeedNote } from "@/features/notes/note-feed";
@@ -66,7 +66,10 @@ export default async function TodayPage() {
           <NoteFeed notes={(notes ?? []) as FeedNote[]} />
         </div>
       </div>
-      <LooseEnds questions={questions ?? []} followups={followups ?? []} />
+      <LooseEnds
+        questions={(questions ?? []).map(mapQuestion)}
+        followups={(followups ?? []).map(mapFollowup)}
+      />
     </div>
   );
 }

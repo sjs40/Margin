@@ -6,6 +6,7 @@ import { dailyKey, endOfDayIso, startOfDayIso } from "@/lib/dates";
 import { retrievalLimits } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { filterValidConflicts } from "@/lib/claims";
+import { formatResolvedThreads } from "@/lib/loose-ends";
 import { getUserSettings } from "@/lib/user-settings";
 
 function formatNote(note: {
@@ -96,6 +97,7 @@ export async function upsertDailyMetaNote(userId: string, date = new Date()) {
       date: day,
       notes: material,
       existingDaily: existing?.current_content,
+      resolvedQuestions: await loadResolvedThreads(userId) || undefined,
     });
     const payload = {
       user_id: userId,
@@ -184,6 +186,31 @@ function claimDate(claim: ClaimSnippet): string {
 
 function formatClaimLine(claim: ClaimSnippet): string {
   return `[${claim.id}] ${claim.claim_type} (${claimDate(claim)}): ${claim.claim_text}`;
+}
+
+async function loadResolvedThreads(userId: string, entityId?: string) {
+  const supabase = createAdminClient();
+  let questions = supabase
+    .from("questions")
+    .select("question_text, resolution_comment, status")
+    .eq("user_id", userId)
+    .in("status", ["resolved", "dismissed"])
+    .not("resolution_comment", "is", null);
+  let followups = supabase
+    .from("followups")
+    .select("text, resolution_comment, status")
+    .eq("user_id", userId)
+    .in("status", ["completed", "dismissed"])
+    .not("resolution_comment", "is", null);
+  if (entityId) {
+    questions = questions.eq("entity_id", entityId);
+    followups = followups.eq("entity_id", entityId);
+  }
+  const [{ data: q }, { data: f }] = await Promise.all([questions, followups]);
+  return formatResolvedThreads([
+    ...(q ?? []).map((row) => ({ question: row.question_text, comment: row.resolution_comment })),
+    ...(f ?? []).map((row) => ({ question: row.text, comment: row.resolution_comment })),
+  ]);
 }
 
 async function loadActiveClaims(userId: string, entityId: string, limit: number, excludeNoteId?: string) {
@@ -347,6 +374,7 @@ export async function updateCompanyMeta(userId: string, entityId: string, trigge
     userEdited: Boolean(existing?.user_edited),
     recent: notes.map(formatNote).join("\n\n"),
     priorClaims: priorClaims.map(formatClaimLine).join("\n") || undefined,
+    resolvedQuestions: (await loadResolvedThreads(userId, entityId)) || undefined,
   });
   const payload = {
     user_id: userId,

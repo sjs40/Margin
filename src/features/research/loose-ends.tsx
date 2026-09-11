@@ -1,46 +1,74 @@
-type Item = { id: string; title?: string; question_text?: string; text?: string };
+import Link from "next/link";
+import { LooseEndRow, type LooseEndView } from "@/features/research/loose-end-row";
 
 export function LooseEnds({
   questions,
   followups,
+  href = "/research/loose-ends",
+  allowNotePicker = false,
 }: {
-  questions: Item[];
-  followups: Item[];
+  questions: LooseEndView[];
+  followups: LooseEndView[];
+  href?: string;
+  allowNotePicker?: boolean;
 }) {
-  if (questions.length === 0 && followups.length === 0) {
-    return (
-      <aside>
-        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Loose Ends
-        </h2>
-        <p className="mt-3 text-sm text-muted-foreground">No open questions or follow-ups.</p>
-      </aside>
-    );
-  }
-
   return (
     <aside>
       <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Loose Ends
+        <Link href={href} className="hover:text-foreground">
+          Loose Ends
+        </Link>
       </h2>
-      <ul className="mt-4 space-y-4">
-        {questions.map((item) => (
-          <li key={item.id} className="text-sm leading-6">
-            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-              Question
-            </span>
-            <p className="mt-1">{item.question_text}</p>
-          </li>
-        ))}
-        {followups.map((item) => (
-          <li key={item.id} className="text-sm leading-6">
-            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-              Follow-up
-            </span>
-            <p className="mt-1">{item.text}</p>
-          </li>
-        ))}
-      </ul>
+      {questions.length === 0 && followups.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">No open questions or follow-ups.</p>
+      ) : (
+        <ul className="mt-4 space-y-4">
+          {questions.map((item) => (
+            <LooseEndRow key={item.id} item={{ ...item, kind: "question" }} allowNotePicker={allowNotePicker} />
+          ))}
+          {followups.map((item) => (
+            <LooseEndRow key={item.id} item={{ ...item, kind: "followup" }} allowNotePicker={allowNotePicker} />
+          ))}
+        </ul>
+      )}
     </aside>
   );
+}
+
+export function mapQuestion(row: {
+  id: string;
+  question_text: string;
+  status: string;
+  resolution_comment?: string | null;
+  resolved_by_note_id?: string | null;
+  note_id?: string | null;
+}): LooseEndView {
+  return {
+    id: row.id,
+    kind: "question",
+    text: row.question_text,
+    status: row.status,
+    resolution_comment: row.resolution_comment ?? null,
+    resolved_by_note_id: row.resolved_by_note_id ?? null,
+    note_id: row.note_id ?? null,
+  };
+}
+
+export function mapFollowup(row: {
+  id: string;
+  text: string;
+  status: string;
+  resolution_comment?: string | null;
+  resolved_by_note_id?: string | null;
+  note_id?: string | null;
+}): LooseEndView {
+  return {
+    id: row.id,
+    kind: "followup",
+    text: row.text,
+    status: row.status,
+    resolution_comment: row.resolution_comment ?? null,
+    resolved_by_note_id: row.resolved_by_note_id ?? null,
+    note_id: row.note_id ?? null,
+  };
 }

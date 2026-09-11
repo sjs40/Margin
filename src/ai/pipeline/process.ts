@@ -204,8 +204,11 @@ async function storeParsedStructures(
       user_id: input.userId,
       note_id: input.noteId ?? null,
       document_id: input.documentId ?? null,
+      entity_id: entityIds[0] ?? null,
+      theme_id: themes[0]?.id ?? null,
       question_text: question,
       status: "open",
+      source: "ai",
     });
   }
   for (const followUp of input.parsed.followUps) {
@@ -213,8 +216,11 @@ async function storeParsedStructures(
       user_id: input.userId,
       note_id: input.noteId ?? null,
       document_id: input.documentId ?? null,
+      entity_id: entityIds[0] ?? null,
+      theme_id: themes[0]?.id ?? null,
       text: followUp,
       status: "open",
+      source: "ai",
     });
   }
   return { resolved, themes, entityIds };

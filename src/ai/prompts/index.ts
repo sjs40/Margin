@@ -84,12 +84,13 @@ ${raw}
 """`;
 }
 
-export const DAILY_SYNTHESIS_PROMPT_VERSION = "daily-synthesis-v1";
+export const DAILY_SYNTHESIS_PROMPT_VERSION = "daily-synthesis-v2";
 
 export function dailySynthesisPrompt(input: {
   date: string;
   notes: string;
   existingDaily?: string | null;
+  resolvedQuestions?: string;
 }): string {
   return `${ANALYST_PREAMBLE}
 
@@ -105,13 +106,18 @@ Existing daily note:
 ${input.existingDaily ?? "(none)"}
 """
 
+Resolved questions:
+"""
+${input.resolvedQuestions ?? "(none)"}
+"""
+
 Today's source material:
 """
 ${input.notes}
 """`;
 }
 
-export const COMPANY_MEMORY_PROMPT_VERSION = "company-memory-v2";
+export const COMPANY_MEMORY_PROMPT_VERSION = "company-memory-v3";
 
 export function companyMemoryPrompt(input: {
   name: string;
@@ -120,6 +126,7 @@ export function companyMemoryPrompt(input: {
   userEdited: boolean;
   recent: string;
   priorClaims?: string;
+  resolvedQuestions?: string;
 }): string {
   return `${ANALYST_PREAMBLE}
 
@@ -137,6 +144,11 @@ ${input.existing ?? "(none)"}
 Prior active claims:
 """
 ${input.priorClaims ?? "(none)"}
+"""
+
+Resolved questions:
+"""
+${input.resolvedQuestions ?? "(none)"}
 """
 
 New and relevant notes:

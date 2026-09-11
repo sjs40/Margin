@@ -70,6 +70,7 @@ export const ai = {
     date: string;
     notes: string;
     existingDaily?: string | null;
+    resolvedQuestions?: string;
   }) {
     return generateStructured({
       schema: DailySynthesisSchema,
@@ -88,6 +89,7 @@ export const ai = {
     userEdited: boolean;
     recent: string;
     priorClaims?: string;
+    resolvedQuestions?: string;
   }) {
     return generateStructured({
       schema: MemoryUpdateSchema,

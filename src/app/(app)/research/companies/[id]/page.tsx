@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Markdown } from "@/components/markdown";
 import { formatLongDate } from "@/lib/dates";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
+import { LooseEndRow } from "@/features/research/loose-end-row";
+import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 
 export default async function CompanyPage({
   params,
@@ -77,6 +79,18 @@ export default async function CompanyPage({
     };
   });
 
+  const { data: openQuestions } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("entity_id", id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  const { data: openFollowups } = await supabase
+    .from("followups")
+    .select("*")
+    .eq("entity_id", id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
   const timeline = (links ?? [])
     .map((link) => {
       const note = Array.isArray(link.notes) ? link.notes[0] : link.notes;
@@ -100,6 +114,22 @@ export default async function CompanyPage({
           )}
         </div>
         <ClaimsSection claims={claims} />
+        <section className="mt-10">
+          <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Open questions
+          </h2>
+          <ul className="mt-4 space-y-4">
+            {(openQuestions ?? []).map((item) => (
+              <LooseEndRow key={item.id} item={mapQuestion(item)} />
+            ))}
+            {(openFollowups ?? []).map((item) => (
+              <LooseEndRow key={item.id} item={mapFollowup(item)} />
+            ))}
+          </ul>
+          {(openQuestions ?? []).length === 0 && (openFollowups ?? []).length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">No open items.</p>
+          ) : null}
+        </section>
       </article>
       <aside>
         <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
