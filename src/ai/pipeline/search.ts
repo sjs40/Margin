@@ -2,13 +2,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
 import { getOptionalProvider } from "@/ai/modelRouter";
 import {
+  chunkIds,
   formatMemoryContext,
   groupTickersByOwner,
   hybridScore,
   lexicalScore,
   looksLikeTickerQuery,
   mergeVectorHits,
-  missingVectorSourceIds,
+  missingVectorIdsBySourceType,
   recencyScore,
   tickerEntityScore,
   type RankedHit,
@@ -19,6 +20,7 @@ const RECENCY_NOTE_LIMIT = 80;
 const RECENCY_DOCUMENT_LIMIT = 40;
 const VECTOR_MATCH_COUNT = 40;
 const TICKER_NOTE_CAP = 200;
+const IN_FILTER_CHUNK = 100;
 
 const NOTE_COLUMNS = "id, title, raw_text, interpreted_text, source_type, captured_at";
 const DOCUMENT_COLUMNS = "id, title, raw_content, interpreted_content, document_type, captured_at";
@@ -102,14 +104,24 @@ function documentHit(document: DocumentRow, query: string, tickers: string[]): R
   };
 }
 
-async function fetchNotesByIds(supabase: Admin, userId: string, ids: string[]): Promise<NoteRow[]> {
+async function fetchInChunks<T>(
+  ids: string[],
+  fetchChunk: (chunk: string[]) => Promise<T[]>,
+): Promise<T[]> {
   if (ids.length === 0) return [];
-  const { data } = await supabase
-    .from("notes")
-    .select(NOTE_COLUMNS)
-    .eq("user_id", userId)
-    .in("id", ids);
-  return (data ?? []) as NoteRow[];
+  const parts = await Promise.all(chunkIds(ids, IN_FILTER_CHUNK).map(fetchChunk));
+  return parts.flat();
+}
+
+async function fetchNotesByIds(supabase: Admin, userId: string, ids: string[]): Promise<NoteRow[]> {
+  return fetchInChunks(ids, async (chunk) => {
+    const { data } = await supabase
+      .from("notes")
+      .select(NOTE_COLUMNS)
+      .eq("user_id", userId)
+      .in("id", chunk);
+    return (data ?? []) as NoteRow[];
+  });
 }
 
 async function fetchDocumentsByIds(
@@ -117,13 +129,14 @@ async function fetchDocumentsByIds(
   userId: string,
   ids: string[],
 ): Promise<DocumentRow[]> {
-  if (ids.length === 0) return [];
-  const { data } = await supabase
-    .from("documents")
-    .select(DOCUMENT_COLUMNS)
-    .eq("user_id", userId)
-    .in("id", ids);
-  return (data ?? []) as DocumentRow[];
+  return fetchInChunks(ids, async (chunk) => {
+    const { data } = await supabase
+      .from("documents")
+      .select(DOCUMENT_COLUMNS)
+      .eq("user_id", userId)
+      .in("id", chunk);
+    return (data ?? []) as DocumentRow[];
+  });
 }
 
 async function fetchTickerLinkedNotes(
@@ -149,13 +162,15 @@ async function fetchTickerLinkedNotes(
 }
 
 async function fetchNoteTickers(supabase: Admin, noteIds: string[]): Promise<Map<string, string[]>> {
-  if (noteIds.length === 0) return new Map();
-  const { data } = await supabase
-    .from("note_entities")
-    .select("note_id, entities(ticker)")
-    .in("note_id", noteIds);
+  const links = await fetchInChunks(noteIds, async (chunk) => {
+    const { data } = await supabase
+      .from("note_entities")
+      .select("note_id, entities(ticker)")
+      .in("note_id", chunk);
+    return data ?? [];
+  });
   return groupTickersByOwner(
-    (data ?? []).map((link) => ({
+    links.map((link) => ({
       ownerId: link.note_id as string,
       ticker: tickerFromNested(link.entities as NestedEntity),
     })),
@@ -166,13 +181,15 @@ async function fetchDocumentTickers(
   supabase: Admin,
   documentIds: string[],
 ): Promise<Map<string, string[]>> {
-  if (documentIds.length === 0) return new Map();
-  const { data } = await supabase
-    .from("document_entities")
-    .select("document_id, entities(ticker)")
-    .in("document_id", documentIds);
+  const links = await fetchInChunks(documentIds, async (chunk) => {
+    const { data } = await supabase
+      .from("document_entities")
+      .select("document_id, entities(ticker)")
+      .in("document_id", chunk);
+    return data ?? [];
+  });
   return groupTickersByOwner(
-    (data ?? []).map((link) => ({
+    links.map((link) => ({
       ownerId: link.document_id as string,
       ticker: tickerFromNested(link.entities as NestedEntity),
     })),
@@ -203,16 +220,6 @@ async function matchQueryVectors(
     // Vector search is optional; lexical/entity still work.
     return [];
   }
-}
-
-function idsForSourceType(vectors: VectorMatch[], sourceType: string, missing: Set<string>): string[] {
-  return [
-    ...new Set(
-      vectors
-        .filter((vector) => vector.sourceType === sourceType && missing.has(vector.sourceId))
-        .map((vector) => vector.sourceId),
-    ),
-  ];
 }
 
 export async function hybridSearch(userId: string, query: string): Promise<RankedHit[]> {
@@ -279,10 +286,13 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
     ...themeHits.map((hit) => ({ id: hit.id })),
   ];
   const vectors = await matchQueryVectors(supabase, userId, query);
-  const missingIds = new Set(missingVectorSourceIds(seededIds, vectors));
   const [extraNotes, extraDocuments] = await Promise.all([
-    fetchNotesByIds(supabase, userId, idsForSourceType(vectors, "note", missingIds)),
-    fetchDocumentsByIds(supabase, userId, idsForSourceType(vectors, "document", missingIds)),
+    fetchNotesByIds(supabase, userId, missingVectorIdsBySourceType(seededIds, vectors, "note")),
+    fetchDocumentsByIds(
+      supabase,
+      userId,
+      missingVectorIdsBySourceType(seededIds, vectors, "document"),
+    ),
   ]);
   noteRows = uniqueById([...noteRows, ...extraNotes]);
   documentRows = uniqueById([...documentRows, ...extraDocuments]);

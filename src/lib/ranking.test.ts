@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  chunkIds,
   formatMemoryContext,
   groupTickersByOwner,
   hybridScore,
   mergeVectorHits,
+  missingVectorIdsBySourceType,
   missingVectorSourceIds,
   tickerEntityScore,
   type RankedHit,
@@ -122,6 +124,32 @@ describe("missingVectorSourceIds", () => {
         ],
       ),
     ).toEqual(["c", "d"]);
+  });
+});
+
+describe("missingVectorIdsBySourceType", () => {
+  it("splits unmatched vector hits so notes and documents can be fetched in one query each", () => {
+    const recent = [hit({ id: "recent-note" })];
+    const vectors = [
+      { sourceId: "recent-note", sourceType: "note", similarity: 0.5 },
+      { sourceId: "note-200", sourceType: "note", similarity: 0.91 },
+      { sourceId: "old-doc", sourceType: "document", similarity: 0.8 },
+      { sourceId: "daily", sourceType: "meta_note", similarity: 0.7 },
+    ];
+    expect(missingVectorIdsBySourceType(recent, vectors, "note")).toEqual(["note-200"]);
+    expect(missingVectorIdsBySourceType(recent, vectors, "document")).toEqual(["old-doc"]);
+    expect(missingVectorIdsBySourceType(recent, vectors, "meta_note")).toEqual(["daily"]);
+  });
+});
+
+describe("chunkIds", () => {
+  it("keeps .in() filters short enough for PostgREST query strings", () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `id-${i}`);
+    const chunks = chunkIds(ids, 100);
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0]).toHaveLength(100);
+    expect(chunks[2]).toHaveLength(50);
+    expect(chunkIds([], 100)).toEqual([]);
   });
 });
 

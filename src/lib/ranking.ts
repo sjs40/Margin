@@ -96,6 +96,15 @@ export function groupTickersByOwner(
   return grouped;
 }
 
+export function chunkIds(ids: readonly string[], size = 100): string[][] {
+  if (size <= 0) return ids.length === 0 ? [] : [ids.slice()];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) {
+    chunks.push(ids.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export function missingVectorSourceIds(
   hits: ReadonlyArray<Pick<RankedHit, "id">>,
   vectors: ReadonlyArray<VectorMatch>,
@@ -109,6 +118,21 @@ export function missingVectorSourceIds(
     missing.push(vector.sourceId);
   }
   return missing;
+}
+
+export function missingVectorIdsBySourceType(
+  hits: ReadonlyArray<Pick<RankedHit, "id">>,
+  vectors: ReadonlyArray<VectorMatch>,
+  sourceType: string,
+): string[] {
+  const missing = new Set(missingVectorSourceIds(hits, vectors));
+  return [
+    ...new Set(
+      vectors
+        .filter((vector) => vector.sourceType === sourceType && missing.has(vector.sourceId))
+        .map((vector) => vector.sourceId),
+    ),
+  ];
 }
 
 export function mergeVectorHits(
