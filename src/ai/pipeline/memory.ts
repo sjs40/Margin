@@ -1,9 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ai } from "@/ai/operations";
 import { completeJob, startJob } from "@/ai/jobs";
+import { CLAIM_CONFLICTS_PROMPT_VERSION } from "@/ai/prompts";
 import { dailyKey, endOfDayIso, startOfDayIso } from "@/lib/dates";
 import { retrievalLimits } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { filterValidConflicts } from "@/lib/claims";
+import { getUserSettings } from "@/lib/user-settings";
 
 function formatNote(note: {
   id: string;
@@ -165,12 +168,171 @@ async function relevantNotesForTheme(userId: string, themeId: string) {
   return notes ?? [];
 }
 
-export async function updateCompanyMeta(userId: string, entityId: string) {
+type ClaimSnippet = {
+  id: string;
+  claim_text: string;
+  claim_type: string;
+  created_at: string;
+  note_id: string | null;
+  notes?: { captured_at: string } | { captured_at: string }[] | null;
+};
+
+function claimDate(claim: ClaimSnippet): string {
+  const note = Array.isArray(claim.notes) ? claim.notes[0] : claim.notes;
+  return note?.captured_at ?? claim.created_at;
+}
+
+function formatClaimLine(claim: ClaimSnippet): string {
+  return `[${claim.id}] ${claim.claim_type} (${claimDate(claim)}): ${claim.claim_text}`;
+}
+
+async function loadActiveClaims(userId: string, entityId: string, limit: number, excludeNoteId?: string) {
+  const supabase = createAdminClient();
+  let query = supabase
+    .from("claims")
+    .select("id, claim_text, claim_type, created_at, note_id, notes(captured_at)")
+    .eq("user_id", userId)
+    .eq("entity_id", entityId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (excludeNoteId) query = query.neq("note_id", excludeNoteId);
+  const { data } = await query;
+  return (data ?? []) as ClaimSnippet[];
+}
+
+export async function detectClaimConflicts(input: {
+  userId: string;
+  entityId: string;
+  ticker: string | null;
+  name: string;
+  triggerNoteId: string;
+}) {
+  const settings = await getUserSettings(input.userId);
+  if (!settings.contradictionDetectionEnabled) return;
+
+  const supabase = createAdminClient();
+  const { data: newRows } = await supabase
+    .from("claims")
+    .select("id, claim_text, claim_type, created_at, note_id, notes(captured_at)")
+    .eq("user_id", input.userId)
+    .eq("entity_id", input.entityId)
+    .eq("note_id", input.triggerNoteId);
+  const newClaims = (newRows ?? []) as ClaimSnippet[];
+  if (newClaims.length === 0) return;
+
+  const priorClaims = await loadActiveClaims(
+    input.userId,
+    input.entityId,
+    settings.contradictionPriorClaimsLimit,
+    input.triggerNoteId,
+  );
+  if (priorClaims.length === 0) return;
+
+  const jobId = await startJob({
+    userId: input.userId,
+    jobType: "detect_claim_conflicts",
+    objectType: "note",
+    objectId: input.triggerNoteId,
+    provider: "gemini",
+    promptVersion: CLAIM_CONFLICTS_PROMPT_VERSION,
+  });
+
+  try {
+    const result = await ai.detectClaimConflicts({
+      ticker: input.ticker,
+      name: input.name,
+      newClaims: newClaims.map(formatClaimLine).join("\n"),
+      priorClaims: priorClaims.map(formatClaimLine).join("\n"),
+    });
+    const valid = filterValidConflicts(
+      result.data.conflicts,
+      newClaims.map((claim) => claim.id),
+      priorClaims.map((claim) => claim.id),
+      settings.contradictionMinConfidence,
+    );
+    for (const conflict of valid) {
+      const { data: relation, error } = await supabase
+        .from("claim_relations")
+        .upsert(
+          {
+            user_id: input.userId,
+            claim_id: conflict.newClaimId,
+            related_claim_id: conflict.priorClaimId,
+            relation_type: conflict.relation,
+            explanation: conflict.explanation,
+            detected_by: "ai",
+            user_status: "pending",
+          },
+          { onConflict: "claim_id,related_claim_id,relation_type" },
+        )
+        .select("id")
+        .single();
+      if (error || !relation) continue;
+      if (conflict.relation !== "contradicts") continue;
+      const newClaim = newClaims.find((claim) => claim.id === conflict.newClaimId);
+      const priorClaim = priorClaims.find((claim) => claim.id === conflict.priorClaimId);
+      await supabase.from("inbox_items").insert({
+        user_id: input.userId,
+        category: "contradiction",
+        object_type: "claim_relation",
+        object_id: relation.id,
+        title: `New note contradicts prior view on ${input.ticker ?? input.name}`,
+        body: conflict.explanation,
+        payload: {
+          relationType: conflict.relation,
+          ticker: input.ticker,
+          newClaim: {
+            id: conflict.newClaimId,
+            text: newClaim?.claim_text ?? "",
+            date: newClaim ? claimDate(newClaim) : null,
+            noteId: newClaim?.note_id ?? input.triggerNoteId,
+          },
+          priorClaim: {
+            id: conflict.priorClaimId,
+            text: priorClaim?.claim_text ?? "",
+            date: priorClaim ? claimDate(priorClaim) : null,
+            noteId: priorClaim?.note_id ?? null,
+          },
+        },
+      });
+    }
+    await completeJob(jobId, {
+      status: "completed",
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      estimatedCost: result.estimatedCost,
+      latencyMs: result.latencyMs,
+      diagnostics: { promptVersion: result.promptVersion, count: valid.length },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "claim conflict detection failed";
+    logger.warn("claim_conflict_detection_failed", { entityId: input.entityId });
+    await completeJob(jobId, { status: "failed", errorMessage: message });
+  }
+}
+
+export async function updateCompanyMeta(userId: string, entityId: string, triggerNoteId?: string) {
   const supabase = createAdminClient();
   const { data: entity } = await supabase.from("entities").select("*").eq("id", entityId).single();
   if (!entity) return;
   const notes = await relevantNotesForEntity(userId, entityId);
   if (notes.length === 0) return;
+  const settings = await getUserSettings(userId);
+  if (triggerNoteId) {
+    await detectClaimConflicts({
+      userId,
+      entityId,
+      ticker: entity.ticker,
+      name: entity.canonical_name,
+      triggerNoteId,
+    });
+  }
+  const priorClaims = await loadActiveClaims(
+    userId,
+    entityId,
+    settings.contradictionPriorClaimsLimit,
+  );
   const { data: existing } = await supabase
     .from("meta_notes")
     .select("*")
@@ -184,6 +346,7 @@ export async function updateCompanyMeta(userId: string, entityId: string) {
     existing: existing?.current_content ?? null,
     userEdited: Boolean(existing?.user_edited),
     recent: notes.map(formatNote).join("\n\n"),
+    priorClaims: priorClaims.map(formatClaimLine).join("\n") || undefined,
   });
   const payload = {
     user_id: userId,

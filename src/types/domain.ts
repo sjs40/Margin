@@ -36,7 +36,8 @@ export type InboxCategory =
   | "needs_interpretation"
   | "ambiguous_entity"
   | "processing_failed"
-  | "suggested_theme";
+  | "suggested_theme"
+  | "contradiction";
 
 export type LinkFetchStatus = "pending" | "ready" | "failed";
 

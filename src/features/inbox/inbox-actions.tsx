@@ -37,7 +37,16 @@ export function InboxActions({ item }: { item: Item }) {
     }, 200);
   }
 
-  async function run(action: "dismiss" | "accept_theme" | "link_entity" | "not_ticker", payload?: Record<string, string>) {
+  async function run(
+    action:
+      | "dismiss"
+      | "accept_theme"
+      | "link_entity"
+      | "not_ticker"
+      | "confirm_contradiction"
+      | "reject_contradiction",
+    payload?: Record<string, string>,
+  ) {
     setError(null);
     const result = await resolveInboxItem(item.id, action, payload);
     if (result && "error" in result && result.error) {
@@ -132,6 +141,23 @@ export function InboxActions({ item }: { item: Item }) {
               Not a ticker
             </Button>
           </div>
+        </div>
+      ) : null}
+      {item.category === "contradiction" ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className="min-h-11 md:h-8 md:min-h-8"
+            onClick={() => void run("confirm_contradiction")}
+          >
+            Confirm
+          </Button>
+          <Button
+            className="min-h-11 md:h-8 md:min-h-8"
+            variant="outline"
+            onClick={() => void run("reject_contradiction")}
+          >
+            Not a contradiction
+          </Button>
         </div>
       ) : null}
       <Button

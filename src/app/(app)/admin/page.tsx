@@ -45,6 +45,26 @@ export default async function AdminPage() {
     .limit(1)
     .maybeSingle();
 
+  const { count: userCount } = await admin.from("users").select("id", { count: "exact", head: true });
+  const { data: settingRows } = await admin
+    .from("user_settings")
+    .select("contradiction_detection_enabled, contradiction_min_confidence, contradiction_prior_claims_limit");
+  const grouped = new Map<string, {
+    enabled: boolean;
+    minConfidence: number;
+    priorLimit: number;
+    users: number;
+  }>();
+  for (const row of settingRows ?? []) {
+    const enabled = Boolean(row.contradiction_detection_enabled);
+    const minConfidence = Number(row.contradiction_min_confidence);
+    const priorLimit = Number(row.contradiction_prior_claims_limit);
+    const key = `${enabled}:${minConfidence}:${priorLimit}`;
+    const current = grouped.get(key) ?? { enabled, minConfidence, priorLimit, users: 0 };
+    current.users += 1;
+    grouped.set(key, current);
+  }
+
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="font-serif text-3xl">Admin</h1>
@@ -59,6 +79,8 @@ export default async function AdminPage() {
             lastSyncedAt: latestSec?.last_synced_at ?? null,
             secCount: secCount ?? 0,
           }}
+          settingsDistribution={[...grouped.values()]}
+          defaultUsers={Math.max(0, (userCount ?? 0) - (settingRows ?? []).length)}
         />
       </div>
     </div>

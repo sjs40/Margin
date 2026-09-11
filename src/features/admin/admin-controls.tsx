@@ -11,10 +11,19 @@ export function AdminControls({
   hostedEnabled,
   usage,
   tickerSync,
+  settingsDistribution,
+  defaultUsers,
 }: {
   hostedEnabled: boolean;
   usage: Array<{ email: string | null; action_count: number }>;
   tickerSync: { lastSyncedAt: string | null; secCount: number };
+  settingsDistribution: Array<{
+    enabled: boolean;
+    minConfidence: number;
+    priorLimit: number;
+    users: number;
+  }>;
+  defaultUsers: number;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(hostedEnabled);
@@ -109,6 +118,41 @@ export function AdminControls({
             ))}
           </ul>
         )}
+      </section>
+
+      <section>
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Contradiction settings
+        </h2>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <th className="py-2">Enabled</th>
+              <th>Min confidence</th>
+              <th>Prior claims</th>
+              <th>Users</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border">
+              <td className="py-2">default</td>
+              <td>0.7</td>
+              <td>50</td>
+              <td className="font-mono">{defaultUsers}</td>
+            </tr>
+            {settingsDistribution.map((row) => (
+              <tr
+                key={`${row.enabled}-${row.minConfidence}-${row.priorLimit}`}
+                className="border-b border-border"
+              >
+                <td className="py-2">{row.enabled ? "on" : "off"}</td>
+                <td className="font-mono">{row.minConfidence}</td>
+                <td className="font-mono">{row.priorLimit}</td>
+                <td className="font-mono">{row.users}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>
   );

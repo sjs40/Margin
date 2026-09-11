@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { withUserAi } from "@/lib/ai-credentials";
 import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
 import { prepareNoteLinks } from "@/features/links/sync";
+import { updateCompanyMeta } from "@/ai/pipeline/memory";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
 import type { ParsedImport } from "@/ai/schemas/memory-update";
 
@@ -121,8 +122,10 @@ async function storeParsedStructures(
   },
 ) {
   const { resolved, ambiguous } = await resolveCompanies(input.parsed.companies, input.sourceText);
+  const entityIds: string[] = [];
   for (const company of resolved) {
     const entityId = await upsertCompany(supabase, company);
+    entityIds.push(entityId);
     if (input.noteId) {
       await supabase.from("note_entities").upsert(
         {
@@ -188,9 +191,11 @@ async function storeParsedStructures(
         user_id: input.userId,
         note_id: input.noteId ?? null,
         document_id: input.documentId ?? null,
+        entity_id: entityIds[0] ?? null,
         claim_text: claim.text,
         claim_type: claim.type,
         confidence: claim.confidence,
+        status: "active",
       });
     }
   }
@@ -212,7 +217,7 @@ async function storeParsedStructures(
       status: "open",
     });
   }
-  return { resolved, themes };
+  return { resolved, themes, entityIds };
 }
 
 async function upsertEmbedding(
@@ -291,7 +296,7 @@ async function processTextNoteBound(
         description: link.description,
       })),
     );
-    await storeParsedStructures(supabase, {
+    const stored = await storeParsedStructures(supabase, {
       userId: note.user_id,
       noteId,
       parsed: parsed.data,
@@ -316,6 +321,16 @@ async function processTextNoteBound(
       content: parsed.data.cleanedText || source,
       metadata: { noteKind: parsed.data.noteKind },
     });
+    for (const entityId of stored.entityIds) {
+      try {
+        await updateCompanyMeta(note.user_id, entityId, noteId);
+      } catch (error) {
+        logger.warn("company_memory_update_failed", {
+          objectId: noteId,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
     await completeJob(jobId, {
       status: "completed",
       inputTokens: parsed.inputTokens,

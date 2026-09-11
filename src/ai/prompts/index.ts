@@ -111,7 +111,7 @@ ${input.notes}
 """`;
 }
 
-export const COMPANY_MEMORY_PROMPT_VERSION = "company-memory-v1";
+export const COMPANY_MEMORY_PROMPT_VERSION = "company-memory-v2";
 
 export function companyMemoryPrompt(input: {
   name: string;
@@ -119,6 +119,7 @@ export function companyMemoryPrompt(input: {
   existing: string | null;
   userEdited: boolean;
   recent: string;
+  priorClaims?: string;
 }): string {
   return `${ANALYST_PREAMBLE}
 
@@ -126,15 +127,52 @@ Update the living Company Meta Note for ${input.name}${input.ticker ? ` (${input
 Capture the user's thinking, not a generic company profile.
 Never manufacture a thesis. "Early research / insufficient evidence for a thesis" is acceptable.
 ${input.userEdited ? "The user has edited this page. Preserve established statements unless new evidence changes them." : ""}
+If prior active claims are provided, reflect changed or still-open views rather than restating every claim.
 
 Existing meta note:
 """
 ${input.existing ?? "(none)"}
 """
 
+Prior active claims:
+"""
+${input.priorClaims ?? "(none)"}
+"""
+
 New and relevant notes:
 """
 ${input.recent}
+"""`;
+}
+
+export const CLAIM_CONFLICTS_PROMPT_VERSION = "claim-conflicts-v1";
+
+export function claimConflictsPrompt(input: {
+  ticker: string | null;
+  name: string;
+  newClaims: string;
+  priorClaims: string;
+}): string {
+  return `${ANALYST_PREAMBLE}
+
+Task: detect genuine tension in the user's own stated view for ${input.name}${input.ticker ? ` (${input.ticker})` : ""}.
+
+Compare the new claims to prior active claims.
+Flag only real tension in the same view — not different topics, not different time horizons, and not a new fact that merely adds detail.
+Prefer "supersedes" when the new claim is an update of the same view with new evidence.
+Use "contradicts" when the new claim rejects a prior view.
+Use "supports" only when the new claim clearly reinforces a prior claim.
+If nothing qualifies, return an empty conflicts array.
+Use the provided claim ids exactly. Do not invent ids.
+
+New claims:
+"""
+${input.newClaims}
+"""
+
+Prior active claims:
+"""
+${input.priorClaims}
 """`;
 }
 

@@ -186,7 +186,13 @@ export async function searchCompaniesAction(query: string) {
 
 export async function resolveInboxItem(
   id: string,
-  action: "dismiss" | "accept_theme" | "link_entity" | "not_ticker",
+  action:
+    | "dismiss"
+    | "accept_theme"
+    | "link_entity"
+    | "not_ticker"
+    | "confirm_contradiction"
+    | "reject_contradiction",
   payload?: Record<string, string>,
 ) {
   const { supabase, user } = await requireUser();
@@ -266,6 +272,41 @@ export async function resolveInboxItem(
         { onConflict: "document_id,entity_id,relationship_type" },
       );
     }
+  }
+
+  if (action === "confirm_contradiction" || action === "reject_contradiction") {
+    const relationId = item.object_id;
+    if (!relationId || item.object_type !== "claim_relation") {
+      return { error: "Contradiction is missing its relation." };
+    }
+    const { data: relation } = await supabase
+      .from("claim_relations")
+      .select("id, related_claim_id, relation_type")
+      .eq("id", relationId)
+      .eq("user_id", user.id)
+      .single();
+    if (!relation) return { error: "Relation not found." };
+    if (action === "reject_contradiction") {
+      await supabase
+        .from("claim_relations")
+        .update({ user_status: "rejected" })
+        .eq("id", relation.id)
+        .eq("user_id", user.id);
+    } else {
+      const nextStatus =
+        relation.relation_type === "supersedes" ? "superseded" : "contradicted";
+      await supabase
+        .from("claim_relations")
+        .update({ user_status: "confirmed" })
+        .eq("id", relation.id)
+        .eq("user_id", user.id);
+      await supabase
+        .from("claims")
+        .update({ status: nextStatus })
+        .eq("id", relation.related_claim_id)
+        .eq("user_id", user.id);
+    }
+    revalidatePath("/research");
   }
 
   await supabase

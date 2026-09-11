@@ -23,6 +23,14 @@ export default async function ThemePage({
     .select("note_id, notes(id, title, interpreted_text, raw_text, captured_at)")
     .eq("theme_id", id);
 
+  const timeline = (noteLinks ?? [])
+    .map((link) => {
+      const note = Array.isArray(link.notes) ? link.notes[0] : link.notes;
+      return note;
+    })
+    .filter((note): note is NonNullable<typeof note> => Boolean(note))
+    .sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-serif text-4xl">{theme.name}</h1>
@@ -37,17 +45,13 @@ export default async function ThemePage({
         Recent research
       </h2>
       <ul className="mt-4 divide-y divide-border">
-        {(noteLinks ?? []).map((link) => {
-          const note = Array.isArray(link.notes) ? link.notes[0] : link.notes;
-          if (!note) return null;
-          return (
+        {(timeline).map((note) => (
             <li key={note.id} className="py-3">
               <Link href={`/notes/${note.id}`}>
                 {note.title || note.interpreted_text || note.raw_text}
               </Link>
             </li>
-          );
-        })}
+          ))}
       </ul>
     </div>
   );

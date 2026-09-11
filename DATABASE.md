@@ -17,7 +17,9 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `note_entities` / `document_entities` | Relationships |
 | `themes` | User-specific themes |
 | `note_themes` / `document_themes` | Relationships |
-| `claims` | Extracted claims with type + confidence |
+| `claims` | Extracted claims with type + confidence + `status` (`active`, `superseded`, `contradicted`, `retracted`) |
+| `claim_relations` | AI/user links between claims (`contradicts`, `supersedes`, `supports`) with confirmation state |
+| `user_settings` | Per-user pipeline knobs (contradiction detection). Missing row means defaults. |
 | `questions` | Open / resolved / dismissed |
 | `followups` | Lightweight follow-ups, not a task app |
 | `meta_notes` | Daily, company, and theme memory |

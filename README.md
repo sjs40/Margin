@@ -35,7 +35,7 @@ Never commit `.env.local`.
 - `supabase/migrations/0002_match_embeddings.sql`
 - `supabase/migrations/0003_note_links.sql`
 - `supabase/migrations/0004_user_ai_keys.sql`
-- `supabase/migrations/0005_sec_ticker_universe.sql`
+- `supabase/migrations/0006_claim_relations.sql`
 
 The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 
