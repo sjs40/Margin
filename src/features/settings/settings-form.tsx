@@ -192,6 +192,17 @@ export function SettingsForm({
           </button>
         </div>
       </section>
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-medium">Export</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Download every note as Markdown files in a zip. No AI is involved.
+        </p>
+        <div className="mt-4">
+          <Button asChild variant="outline">
+            <a href="/api/export/all">Export everything</a>
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

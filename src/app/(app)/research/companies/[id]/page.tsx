@@ -7,6 +7,7 @@ import { formatLongDate } from "@/lib/dates";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { ExportLink } from "@/features/export/export-link";
 import { fetchQuote } from "@/lib/prices/provider";
 import { formatQuotePrice, formatTickerPrice, percentChange } from "@/lib/prices/format";
 
@@ -119,6 +120,9 @@ export default async function CompanyPage({
       <article>
         <p className="font-mono text-sm tracking-[0.18em]">{entity.ticker}</p>
         <h1 className="mt-2 font-serif text-4xl">{entity.canonical_name}</h1>
+        <div className="mt-3">
+          <ExportLink href={`/api/export/company/${entity.id}`} label="Export" />
+        </div>
         {currentQuote ? (
           <p className="mt-3 font-mono text-sm text-muted-foreground">
             {formatQuotePrice(currentQuote.price, currentQuote.currency)}

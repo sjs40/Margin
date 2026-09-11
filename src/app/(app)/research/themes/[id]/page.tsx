@@ -5,6 +5,7 @@ import { MetaNoteEditor } from "@/features/meta-notes/meta-note-editor";
 import { MetaNoteHistory } from "@/features/meta-notes/meta-note-history";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { ExportLink } from "@/features/export/export-link";
 
 export default async function ThemePage({
   params,
@@ -55,6 +56,9 @@ export default async function ThemePage({
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-serif text-4xl">{theme.name}</h1>
+      <div className="mt-3">
+        <ExportLink href={`/api/export/theme/${theme.id}`} label="Export" />
+      </div>
       <div className="mt-8">
         {meta?.current_content ? (
           <MetaNoteEditor id={meta.id} content={meta.current_content} />
