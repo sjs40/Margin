@@ -56,3 +56,7 @@ export const retrievalLimits = {
   recentNotes: 20,
   semanticHistorical: 15,
 };
+
+export function secUserAgent(): string {
+  return read("SEC_USER_AGENT").trim();
+}

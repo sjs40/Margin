@@ -4,19 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { setHostedAiEnabled } from "@/features/admin/actions";
+import { Button } from "@/components/ui/button";
+import { setHostedAiEnabled, triggerSecTickerSync } from "@/features/admin/actions";
 
 export function AdminControls({
   hostedEnabled,
   usage,
+  tickerSync,
 }: {
   hostedEnabled: boolean;
   usage: Array<{ email: string | null; action_count: number }>;
+  tickerSync: { lastSyncedAt: string | null; secCount: number };
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(hostedEnabled);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   async function onToggle(next: boolean) {
     setPending(true);
@@ -29,6 +34,21 @@ export function AdminControls({
     }
     setEnabled(next);
     router.refresh();
+  }
+
+  async function onSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    const result = await triggerSecTickerSync();
+    setSyncing(false);
+    if ("error" in result && result.error) {
+      setSyncMessage(result.error);
+      return;
+    }
+    if ("ok" in result && result.ok) {
+      setSyncMessage(`Synced ${result.upserted} companies.`);
+      router.refresh();
+    }
   }
 
   return (
@@ -50,6 +70,27 @@ export function AdminControls({
           />
         </div>
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+      </section>
+
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          SEC ticker universe
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {tickerSync.secCount} SEC companies
+          {tickerSync.lastSyncedAt
+            ? ` · last synced ${new Date(tickerSync.lastSyncedAt).toLocaleString()}`
+            : " · not synced yet"}
+          . Nightly cron refreshes at most once a week.
+        </p>
+        <Button
+          className="mt-4 min-h-11"
+          onClick={() => void onSync()}
+          disabled={syncing}
+        >
+          {syncing ? "Syncing…" : "Sync SEC tickers now"}
+        </Button>
+        {syncMessage ? <p className="mt-3 text-sm text-muted-foreground">{syncMessage}</p> : null}
       </section>
 
       <section>

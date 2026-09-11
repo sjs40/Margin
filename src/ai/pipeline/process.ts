@@ -30,12 +30,16 @@ async function upsertCompany(
   input: { ticker: string | null; canonicalName: string; aliases: string[] },
 ) {
   if (input.ticker) {
+    const known = await lookupTicker(input.ticker);
+    if (known?.id) return known.id;
     const { data: existing } = await supabase
       .from("entities")
       .select("id")
-      .eq("ticker", input.ticker)
+      .eq("entity_type", "company")
+      .ilike("ticker", input.ticker)
       .maybeSingle();
     if (existing) return existing.id as string;
+    throw new Error(`Refusing to create unknown ticker ${input.ticker}`);
   }
   const { data: byName } = await supabase
     .from("entities")
@@ -45,15 +49,14 @@ async function upsertCompany(
     .maybeSingle();
   if (byName) return byName.id as string;
 
-  const known = input.ticker ? lookupTicker(input.ticker) : undefined;
   const { data, error } = await supabase
     .from("entities")
     .insert({
       entity_type: "company",
-      canonical_name: known?.name ?? input.canonicalName,
-      ticker: input.ticker,
-      exchange: known?.exchange ?? null,
-      aliases: known?.aliases ?? input.aliases,
+      canonical_name: input.canonicalName,
+      ticker: null,
+      aliases: input.aliases,
+      source: "user",
     })
     .select("id")
     .single();
@@ -117,7 +120,7 @@ async function storeParsedStructures(
     sourceText: string;
   },
 ) {
-  const { resolved, ambiguous } = resolveCompanies(input.parsed.companies, input.sourceText);
+  const { resolved, ambiguous } = await resolveCompanies(input.parsed.companies, input.sourceText);
   for (const company of resolved) {
     const entityId = await upsertCompany(supabase, company);
     if (input.noteId) {

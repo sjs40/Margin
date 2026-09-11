@@ -95,6 +95,9 @@ export type Entity = {
   ticker: string | null;
   exchange: string | null;
   aliases: string[];
+  cik?: string | null;
+  source?: "sec" | "user";
+  last_synced_at?: string | null;
 };
 
 export type Theme = {

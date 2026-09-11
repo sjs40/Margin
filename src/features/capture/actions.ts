@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { processDocument, processHandwrittenNote, processTextNote } from "@/ai/pipeline/process";
 import { upsertDailyMetaNote } from "@/ai/pipeline/memory";
 import { parseImportedMarkdown } from "@/lib/importer";
@@ -166,12 +167,37 @@ export async function updateMetaNote(id: string, content: string) {
   return { ok: true };
 }
 
+export async function searchCompaniesAction(query: string) {
+  const { supabase } = await requireUser();
+  const q = query.trim();
+  if (q.length < 1) return [];
+  const { data, error } = await supabase.rpc("search_companies", { q, lim: 8 });
+  if (error) return [];
+  return (data ?? []).map((row: {
+    id: string;
+    ticker: string | null;
+    canonical_name: string;
+  }) => ({
+    id: row.id,
+    ticker: row.ticker,
+    name: row.canonical_name,
+  }));
+}
+
 export async function resolveInboxItem(
   id: string,
   action: "dismiss" | "accept_theme" | "link_entity" | "not_ticker",
   payload?: Record<string, string>,
 ) {
   const { supabase, user } = await requireUser();
+  const { data: item } = await supabase
+    .from("inbox_items")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  if (!item) return { error: "Inbox item not found." };
+
   if (action === "accept_theme") {
     const name = payload?.name;
     if (name) {
@@ -183,9 +209,71 @@ export async function resolveInboxItem(
       });
     }
   }
+
+  if (action === "link_entity") {
+    const admin = createAdminClient();
+    let entityId = payload?.entityId?.trim() || "";
+    const createName = payload?.name?.trim() || "";
+    const createTicker = payload?.ticker?.trim().toUpperCase() || "";
+
+    if (!entityId && createTicker) {
+      const { data: existing } = await admin
+        .from("entities")
+        .select("id")
+        .eq("entity_type", "company")
+        .ilike("ticker", createTicker)
+        .maybeSingle();
+      if (existing) entityId = existing.id as string;
+    }
+
+    if (!entityId && createName) {
+      const { data: created, error } = await admin
+        .from("entities")
+        .insert({
+          entity_type: "company",
+          canonical_name: createName,
+          ticker: createTicker || null,
+          aliases: createTicker && createTicker !== createName ? [createTicker] : [],
+          source: "user",
+        })
+        .select("id")
+        .single();
+      if (error || !created) return { error: error?.message ?? "Could not create company." };
+      entityId = created.id as string;
+    }
+
+    if (!entityId) return { error: "Pick a company or create one." };
+
+    if (item.object_type === "note" && item.object_id) {
+      await admin.from("note_entities").upsert(
+        {
+          note_id: item.object_id,
+          entity_id: entityId,
+          relationship_type: "mentioned",
+          confidence: 1,
+        },
+        { onConflict: "note_id,entity_id,relationship_type" },
+      );
+    }
+    if (item.object_type === "document" && item.object_id) {
+      await admin.from("document_entities").upsert(
+        {
+          document_id: item.object_id,
+          entity_id: entityId,
+          relationship_type: "mentioned",
+          confidence: 1,
+        },
+        { onConflict: "document_id,entity_id,relationship_type" },
+      );
+    }
+  }
+
   await supabase
     .from("inbox_items")
-    .update({ status: "resolved", updated_at: new Date().toISOString() })
+    .update({
+      status: action === "dismiss" ? "dismissed" : "resolved",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .eq("user_id", user.id);
   revalidatePath("/inbox");

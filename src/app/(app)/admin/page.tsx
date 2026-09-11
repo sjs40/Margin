@@ -32,6 +32,19 @@ export default async function AdminPage() {
     action_count: row.action_count,
   }));
 
+  const { count: secCount } = await admin
+    .from("entities")
+    .select("id", { count: "exact", head: true })
+    .eq("source", "sec");
+  const { data: latestSec } = await admin
+    .from("entities")
+    .select("last_synced_at")
+    .eq("source", "sec")
+    .not("last_synced_at", "is", null)
+    .order("last_synced_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="font-serif text-3xl">Admin</h1>
@@ -39,7 +52,14 @@ export default async function AdminPage() {
         Control the hosted Gemini trial. Your own account is unlimited on the server key.
       </p>
       <div className="mt-8">
-        <AdminControls hostedEnabled={settings?.hosted_ai_enabled ?? true} usage={usage} />
+        <AdminControls
+          hostedEnabled={settings?.hosted_ai_enabled ?? true}
+          usage={usage}
+          tickerSync={{
+            lastSyncedAt: latestSec?.last_synced_at ?? null,
+            secCount: secCount ?? 0,
+          }}
+        />
       </div>
     </div>
   );

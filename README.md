@@ -25,6 +25,7 @@ Create an account, then add your own [Gemini API key](https://aistudio.google.co
 - `AI_KEY_ENCRYPTION_SECRET` (long random string; encrypts user keys at rest)
 - `ADMIN_EMAIL` (the login that can open `/admin`)
 - `CRON_SECRET` (a long random string for the nightly job)
+- `SEC_USER_AGENT` (descriptive User-Agent with contact email; required to fetch SEC tickers)
 
 Never commit `.env.local`.
 
@@ -34,8 +35,9 @@ Never commit `.env.local`.
 - `supabase/migrations/0002_match_embeddings.sql`
 - `supabase/migrations/0003_note_links.sql`
 - `supabase/migrations/0004_user_ai_keys.sql`
+- `supabase/migrations/0005_sec_ticker_universe.sql`
 
-Optional sample tickers: `supabase/seed.sql`.
+The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 
 4. Enable email/password Auth. Turn **off** "Confirm email" unless you have SMTP, or new accounts will not get a session.
 

@@ -13,7 +13,7 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `notes` | Captures. `original_raw_text` is immutable after insert; `raw_text` may be edited |
 | `source_assets` | Handwritten images (and future audio/attachments) |
 | `documents` | Long-form and AI imports |
-| `entities` | Shared companies/people/industries |
+| `entities` | Shared companies/people/industries. Companies include `cik`, `source` (`sec` \| `user`), `aliases`, `last_synced_at`. Unique on `upper(ticker)` for companies. |
 | `note_entities` / `document_entities` | Relationships |
 | `themes` | User-specific themes |
 | `note_themes` / `document_themes` | Relationships |
@@ -38,6 +38,8 @@ Owner policies use `user_id = auth.uid()` (or a join to the owning note/document
 ## Retrieval RPC
 
 `match_embeddings(query_embedding, match_user_id, match_count)` returns cosine similarity for hybrid search.
+
+Company lookup RPCs (authenticated + service role): `lookup_company(q)`, `search_companies(q, lim)`, `search_companies_by_name(q)`.
 
 ## Idempotency
 
