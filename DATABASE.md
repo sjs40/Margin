@@ -14,7 +14,7 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `source_assets` | Handwritten images (and future audio/attachments) |
 | `documents` | Long-form and AI imports |
 | `entities` | Shared companies/people/industries. Companies include `cik`, `source` (`sec` \| `user`), `aliases`, `last_synced_at`. Unique on `upper(ticker)` for companies. |
-| `note_entities` / `document_entities` | Relationships |
+| `note_entities` / `document_entities` | Relationships. `note_entities` also stores `price_at_capture`, `price_currency`, `price_as_of`, `price_provider` |
 | `themes` | User-specific themes |
 | `note_themes` / `document_themes` | Relationships |
 | `claims` | Extracted claims with type + confidence + `status` (`active`, `superseded`, `contradicted`, `retracted`) |

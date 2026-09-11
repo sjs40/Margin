@@ -12,6 +12,7 @@ import { withUserAi } from "@/lib/ai-credentials";
 import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
 import { prepareNoteLinks } from "@/features/links/sync";
 import { updateCompanyMeta } from "@/ai/pipeline/memory";
+import { stampNotePrices } from "@/lib/prices/stamp";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
 import type { ParsedImport } from "@/ai/schemas/memory-update";
 
@@ -333,6 +334,14 @@ async function processTextNoteBound(
       parsed: parsed.data,
       sourceText: source,
     });
+    try {
+      await stampNotePrices(supabase, noteId);
+    } catch (error) {
+      logger.warn("price_stamp_failed", {
+        objectId: noteId,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    }
     await supabase
       .from("notes")
       .update({

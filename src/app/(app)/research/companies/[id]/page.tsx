@@ -7,6 +7,8 @@ import { formatLongDate } from "@/lib/dates";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { fetchQuote } from "@/lib/prices/provider";
+import { formatQuotePrice, formatTickerPrice, percentChange } from "@/lib/prices/format";
 
 export default async function CompanyPage({
   params,
@@ -32,7 +34,7 @@ export default async function CompanyPage({
     : { data: [] };
   const { data: links } = await supabase
     .from("note_entities")
-    .select("note_id, notes(id, title, raw_text, interpreted_text, captured_at)")
+    .select("note_id, price_at_capture, notes(id, title, raw_text, interpreted_text, captured_at)")
     .eq("entity_id", id);
   const { data: claimRows } = await supabase
     .from("claims")
@@ -95,16 +97,35 @@ export default async function CompanyPage({
   const timeline = (links ?? [])
     .map((link) => {
       const note = Array.isArray(link.notes) ? link.notes[0] : link.notes;
-      return note;
+      if (!note) return null;
+      return { ...note, price_at_capture: link.price_at_capture as number | null };
     })
     .filter((note): note is NonNullable<typeof note> => Boolean(note))
     .sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
+
+  const currentQuote = entity.ticker
+    ? await fetchQuote(entity.ticker, { timeoutMs: 3000, revalidateSeconds: 60 })
+    : null;
+  const earliestStamp = [...timeline]
+    .filter((note) => note.price_at_capture != null)
+    .sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime())[0];
+  const move =
+    currentQuote && earliestStamp?.price_at_capture != null
+      ? percentChange(currentQuote.price, Number(earliestStamp.price_at_capture))
+      : null;
 
   return (
     <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
       <article>
         <p className="font-mono text-sm tracking-[0.18em]">{entity.ticker}</p>
         <h1 className="mt-2 font-serif text-4xl">{entity.canonical_name}</h1>
+        {currentQuote ? (
+          <p className="mt-3 font-mono text-sm text-muted-foreground">
+            {formatQuotePrice(currentQuote.price, currentQuote.currency)}
+            {move != null ? ` · ${move >= 0 ? "+" : ""}${move.toFixed(1)}% since first stamped note` : ""}
+            <span className="ml-2 text-[11px] uppercase tracking-[0.12em]">informational</span>
+          </p>
+        ) : null}
         <div className="mt-8">
           {meta?.current_content ? (
             <MetaNoteEditor id={meta.id} content={meta.current_content} />
@@ -142,6 +163,9 @@ export default async function CompanyPage({
               <Link href={`/notes/${note.id}`} className="block">
                 <p className="font-mono text-[11px] text-muted-foreground">
                   {formatLongDate(note.captured_at)}
+                  {note.price_at_capture != null && entity.ticker
+                    ? ` · ${formatTickerPrice(entity.ticker, Number(note.price_at_capture))}`
+                    : ""}
                 </p>
                 <p className="mt-1 text-sm">
                   {note.title || note.interpreted_text || note.raw_text}

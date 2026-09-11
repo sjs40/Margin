@@ -10,6 +10,7 @@ import { LinkifiedText } from "@/components/linkified-text";
 import { AddLooseEnd, LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { NoteAnnotations } from "@/features/notes/note-annotations";
+import { formatCapturePrice } from "@/lib/prices/format";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
@@ -25,7 +26,7 @@ export default async function NotePage({
     await Promise.all([
       supabase
         .from("note_entities")
-        .select("confidence, entities(id, ticker, canonical_name)")
+        .select("confidence, price_at_capture, entities(id, ticker, canonical_name)")
         .eq("note_id", id),
       supabase.from("note_themes").select("confidence, themes(id, name)").eq("note_id", id),
       supabase.from("questions").select("*").eq("note_id", id),
@@ -96,9 +97,13 @@ export default async function NotePage({
         title="Companies"
         items={(companies ?? []).map((row) => {
           const entity = Array.isArray(row.entities) ? row.entities[0] : row.entities;
-          return entity
-            ? { href: `/research/companies/${entity.id}`, label: entity.ticker || entity.canonical_name }
-            : null;
+          if (!entity) return null;
+          const ticker = entity.ticker || entity.canonical_name;
+          const stamp =
+            entity.ticker && row.price_at_capture != null
+              ? formatCapturePrice(entity.ticker, Number(row.price_at_capture))
+              : ticker;
+          return { href: `/research/companies/${entity.id}`, label: stamp };
         })}
       />
       <MetaList

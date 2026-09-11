@@ -26,6 +26,7 @@ Create an account, then add your own [Gemini API key](https://aistudio.google.co
 - `ADMIN_EMAIL` (the login that can open `/admin`)
 - `CRON_SECRET` (a long random string for the nightly job)
 - `SEC_USER_AGENT` (descriptive User-Agent with contact email; required to fetch SEC tickers)
+- `PRICE_PROVIDER` (`yahoo` default, `stooq`, or `none`)
 
 Never commit `.env.local`.
 
@@ -39,6 +40,7 @@ Never commit `.env.local`.
 - `supabase/migrations/0006_claim_relations.sql`
 - `supabase/migrations/0007_loose_ends_workflow.sql`
 - `supabase/migrations/0008_note_annotations.sql`
+- `supabase/migrations/0009_price_stamps.sql`
 
 The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 

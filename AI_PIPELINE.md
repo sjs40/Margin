@@ -51,6 +51,8 @@ After a note is parsed, `updateCompanyMeta` also runs `detectClaimConflicts` (`c
 
 Adding or editing a note annotation re-embeds the note (`raw_text` + annotations) via `after()`. Annotations are not re-parsed for claims.
 
+After entities are linked, the pipeline stamps `note_entities` with a capture-time quote (Yahoo, then Stooq). This is not an AI call. Failure leaves the note ready with no price.
+
 ## Hybrid search
 
 Lexical + ticker/entity match + vector similarity + recency. Ticker-shaped queries overweight exact entity matches. Ask Margin synthesizes only from retrieved user memory and returns source ids.
