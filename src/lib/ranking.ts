@@ -13,6 +13,12 @@ export type RankedHit = {
   recencyScore: number;
 };
 
+export type VectorMatch = {
+  sourceId: string;
+  similarity: number;
+  sourceType?: string;
+};
+
 export function looksLikeTickerQuery(query: string): boolean {
   return /^[A-Z]{1,5}$/.test(query.trim());
 }
@@ -69,4 +75,72 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
 export function rankHits(hits: RankedHit[], query: string): RankedHit[] {
   return [...hits].sort((a, b) => hybridScore(b, query) - hybridScore(a, query));
+}
+
+export function tickerEntityScore(query: string, tickers: readonly string[]): number {
+  if (!looksLikeTickerQuery(query)) return 0;
+  return tickers.includes(query.trim().toUpperCase()) ? 1 : 0;
+}
+
+export function groupTickersByOwner(
+  rows: Array<{ ownerId: string; ticker?: string | null }>,
+): Map<string, string[]> {
+  const grouped = new Map<string, string[]>();
+  for (const row of rows) {
+    const ticker = row.ticker?.trim();
+    if (!ticker) continue;
+    const existing = grouped.get(row.ownerId) ?? [];
+    if (!existing.includes(ticker)) existing.push(ticker);
+    grouped.set(row.ownerId, existing);
+  }
+  return grouped;
+}
+
+export function missingVectorSourceIds(
+  hits: ReadonlyArray<Pick<RankedHit, "id">>,
+  vectors: ReadonlyArray<VectorMatch>,
+): string[] {
+  const present = new Set(hits.map((hit) => hit.id));
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  for (const vector of vectors) {
+    if (present.has(vector.sourceId) || seen.has(vector.sourceId)) continue;
+    seen.add(vector.sourceId);
+    missing.push(vector.sourceId);
+  }
+  return missing;
+}
+
+export function mergeVectorHits(
+  hits: RankedHit[],
+  vectors: ReadonlyArray<VectorMatch>,
+  fetchedHits: RankedHit[] = [],
+): RankedHit[] {
+  const merged = hits.map((hit) => ({ ...hit }));
+  const byId = new Map(merged.map((hit) => [hit.id, hit]));
+
+  for (const extra of fetchedHits) {
+    if (byId.has(extra.id)) continue;
+    const copy = { ...extra };
+    merged.push(copy);
+    byId.set(copy.id, copy);
+  }
+
+  for (const vector of vectors) {
+    const existing = byId.get(vector.sourceId);
+    if (!existing) continue;
+    existing.vectorScore = Math.max(existing.vectorScore, vector.similarity);
+  }
+
+  return merged;
+}
+
+export function formatMemoryContext(hits: RankedHit[], limit = 12): string {
+  return hits
+    .slice(0, limit)
+    .map(
+      (hit) =>
+        `SOURCE id=${hit.id} kind=${hit.kind} date=${hit.date ?? ""} title=${hit.title}\n${hit.snippet}`,
+    )
+    .join("\n\n");
 }
