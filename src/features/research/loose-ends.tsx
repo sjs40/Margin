@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { LooseEndRow, type LooseEndView } from "@/features/research/loose-end-row";
+import { LooseEndRow } from "@/features/research/loose-end-row";
+import {
+  mapFollowupRecord,
+  mapQuestionRecord,
+  type FollowupRecord,
+  type LooseEndView,
+  type QuestionRecord,
+} from "@/lib/loose-ends";
 
 export function LooseEnds({
   questions,
@@ -35,40 +42,10 @@ export function LooseEnds({
   );
 }
 
-export function mapQuestion(row: {
-  id: string;
-  question_text: string;
-  status: string;
-  resolution_comment?: string | null;
-  resolved_by_note_id?: string | null;
-  note_id?: string | null;
-}): LooseEndView {
-  return {
-    id: row.id,
-    kind: "question",
-    text: row.question_text,
-    status: row.status,
-    resolution_comment: row.resolution_comment ?? null,
-    resolved_by_note_id: row.resolved_by_note_id ?? null,
-    note_id: row.note_id ?? null,
-  };
+export function mapQuestion(row: QuestionRecord): LooseEndView {
+  return mapQuestionRecord(row);
 }
 
-export function mapFollowup(row: {
-  id: string;
-  text: string;
-  status: string;
-  resolution_comment?: string | null;
-  resolved_by_note_id?: string | null;
-  note_id?: string | null;
-}): LooseEndView {
-  return {
-    id: row.id,
-    kind: "followup",
-    text: row.text,
-    status: row.status,
-    resolution_comment: row.resolution_comment ?? null,
-    resolved_by_note_id: row.resolved_by_note_id ?? null,
-    note_id: row.note_id ?? null,
-  };
+export function mapFollowup(row: FollowupRecord): LooseEndView {
+  return mapFollowupRecord(row);
 }

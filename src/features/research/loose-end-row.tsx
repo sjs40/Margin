@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,18 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createLooseEnd, searchRecentNotes, updateLooseEnd, type LooseEndKind } from "@/features/research/actions";
+import {
+  createLooseEnd,
+  searchRecentNotes,
+  sendLooseEndToInbox,
+  updateLooseEnd,
+  type LooseEndKind,
+} from "@/features/research/actions";
+import type { LooseEndView } from "@/lib/loose-ends";
 
-export type LooseEndView = {
-  id: string;
-  kind: LooseEndKind;
-  text: string;
-  status: string;
-  resolution_comment: string | null;
-  resolved_by_note_id: string | null;
-  note_id: string | null;
-  resolving_note_title?: string | null;
-};
+export type { LooseEndView };
 
 export function LooseEndRow({
   item,
@@ -56,6 +54,16 @@ export function LooseEndRow({
     window.location.reload();
   }
 
+  async function sendToInbox() {
+    setError(null);
+    const result = await sendLooseEndToInbox({ id: item.id, kind: item.kind });
+    if ("error" in result && result.error) {
+      setError(result.error);
+      return;
+    }
+    window.location.reload();
+  }
+
   return (
     <li className="text-sm leading-6">
       <div className="flex items-start justify-between gap-3">
@@ -64,6 +72,7 @@ export function LooseEndRow({
             {item.kind === "question" ? "Question" : "Follow-up"}
           </span>
           <p className="mt-1">{item.text}</p>
+          <LooseEndSourceLine item={item} />
           {item.resolution_comment ? (
             <p className="mt-1 text-muted-foreground">Why: {item.resolution_comment}</p>
           ) : null}
@@ -81,6 +90,9 @@ export function LooseEndRow({
             <DropdownMenuItem onSelect={() => setForm("resolve")}>
               {item.kind === "followup" ? "Complete" : "Resolve"}
             </DropdownMenuItem>
+            {item.status === "open" ? (
+              <DropdownMenuItem onSelect={() => void sendToInbox()}>Send to Inbox</DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={() => setForm("dismiss")}>Dismiss</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setForm("comment")}>Add response</DropdownMenuItem>
           </DropdownMenuContent>
@@ -142,8 +154,45 @@ export function LooseEndRow({
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
+      ) : error ? (
+        <p className="mt-2 text-sm text-destructive">{error}</p>
       ) : null}
     </li>
+  );
+}
+
+export function LooseEndSourceLine({
+  item,
+}: {
+  item: Pick<LooseEndView, "entity_label" | "theme_name" | "source_title" | "source_href">;
+}) {
+  const parts: Array<{ key: string; node: ReactNode }> = [];
+  if (item.entity_label) parts.push({ key: "entity", node: item.entity_label });
+  if (item.theme_name) parts.push({ key: "theme", node: item.theme_name });
+  if (item.source_title) {
+    parts.push({
+      key: "source",
+      node: item.source_href ? (
+        <Link href={item.source_href} className="underline">
+          {item.source_title}
+        </Link>
+      ) : (
+        item.source_title
+      ),
+    });
+  }
+  if (parts.length === 0) return null;
+  return (
+    <p className="mt-1 text-[11px] text-muted-foreground">
+      From:{" "}
+      {parts.map((part, index) => (
+        <span key={part.key}>
+          {index > 0 ? " / " : null}
+          {part.node}
+        </span>
+      ))}
+      {" →"}
+    </p>
   );
 }
 
