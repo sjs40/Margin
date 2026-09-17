@@ -39,6 +39,7 @@ export async function saveMetaNoteEdit(id: string, content: string) {
   });
   if (versionError) return { error: versionError.message };
   revalidatePath("/today");
+  revalidatePath("/today/archive");
   revalidatePath("/research");
   return { ok: true };
 }

@@ -12,6 +12,8 @@ import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { NoteAnnotations } from "@/features/notes/note-annotations";
 import { formatCapturePrice } from "@/lib/prices/format";
 import { ExportLink } from "@/features/export/export-link";
+import { CopyContextButton } from "@/features/context/copy-context-button";
+import { DevelopAction } from "@/features/context/develop-action";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
 
 export default async function NotePage({
@@ -66,6 +68,8 @@ export default async function NotePage({
         <ProcessingBadge status={note.processing_status as ProcessingStatus} />
         {note.processing_status === "failed" ? <RetryNoteButton noteId={note.id} /> : null}
         <ExportLink href={`/api/export/note/${note.id}`} label="Export" />
+        <CopyContextButton seedType="note" seedId={note.id} />
+        <DevelopAction />
       </div>
       <SourceCards links={(links ?? []) as NoteLink[]} />
       {imageUrl ? (

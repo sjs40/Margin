@@ -9,7 +9,7 @@ export type LooseEndKind = "question" | "followup";
 export async function updateLooseEnd(input: {
   id: string;
   kind: LooseEndKind;
-  status: "open" | "resolved" | "dismissed" | "completed";
+  status: "open" | "resolved" | "dismissed" | "completed" | "deferred";
   comment?: string;
   resolvedByNoteId?: string | null;
 }) {
@@ -17,7 +17,8 @@ export async function updateLooseEnd(input: {
   const now = new Date().toISOString();
   const comment = input.comment?.trim() || null;
   if (input.kind === "question") {
-    const status = input.status === "completed" ? "resolved" : input.status;
+    const status =
+      input.status === "completed" ? "resolved" : input.status;
     const { error } = await supabase
       .from("questions")
       .update({
@@ -45,10 +46,73 @@ export async function updateLooseEnd(input: {
       .eq("user_id", user.id);
     if (error) return { error: error.message };
   }
+  if (input.status !== "deferred") {
+    await supabase
+      .from("inbox_items")
+      .update({ status: "resolved", updated_at: now })
+      .eq("user_id", user.id)
+      .eq("category", "loose_end")
+      .eq("object_type", input.kind)
+      .eq("object_id", input.id)
+      .eq("status", "open");
+  }
   revalidatePath("/today");
   revalidatePath("/research");
   revalidatePath("/research/loose-ends");
+  revalidatePath("/inbox");
   revalidatePath("/notes");
+  return { ok: true };
+}
+
+export async function sendLooseEndToInbox(input: { id: string; kind: LooseEndKind }) {
+  const { supabase, user } = await requireUser();
+  const table = input.kind === "question" ? "questions" : "followups";
+  const { data: existing } = await supabase
+    .from(table)
+    .select("*")
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .single();
+  if (!existing) return { error: "Not found." };
+  const now = new Date().toISOString();
+  if (input.kind === "question") {
+    await supabase
+      .from("questions")
+      .update({ status: "deferred", updated_at: now })
+      .eq("id", input.id)
+      .eq("user_id", user.id);
+  } else {
+    await supabase
+      .from("followups")
+      .update({ status: "deferred", updated_at: now })
+      .eq("id", input.id)
+      .eq("user_id", user.id);
+  }
+  const title = input.kind === "question" ? existing.question_text : existing.text;
+  const { data: openItem } = await supabase
+    .from("inbox_items")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("category", "loose_end")
+    .eq("object_type", input.kind)
+    .eq("object_id", input.id)
+    .eq("status", "open")
+    .maybeSingle();
+  if (!openItem) {
+    await supabase.from("inbox_items").insert({
+      user_id: user.id,
+      category: "loose_end",
+      title: String(title),
+      body: "Deferred from Loose Ends.",
+      object_type: input.kind,
+      object_id: input.id,
+      payload: { kind: input.kind },
+      status: "open",
+    });
+  }
+  revalidatePath("/today");
+  revalidatePath("/research/loose-ends");
+  revalidatePath("/inbox");
   return { ok: true };
 }
 

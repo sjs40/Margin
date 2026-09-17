@@ -42,6 +42,7 @@ export function mapQuestion(row: {
   resolution_comment?: string | null;
   resolved_by_note_id?: string | null;
   note_id?: string | null;
+  document_id?: string | null;
 }): LooseEndView {
   return {
     id: row.id,
@@ -51,6 +52,7 @@ export function mapQuestion(row: {
     resolution_comment: row.resolution_comment ?? null,
     resolved_by_note_id: row.resolved_by_note_id ?? null,
     note_id: row.note_id ?? null,
+    document_id: row.document_id ?? null,
   };
 }
 
@@ -61,6 +63,7 @@ export function mapFollowup(row: {
   resolution_comment?: string | null;
   resolved_by_note_id?: string | null;
   note_id?: string | null;
+  document_id?: string | null;
 }): LooseEndView {
   return {
     id: row.id,
@@ -70,5 +73,6 @@ export function mapFollowup(row: {
     resolution_comment: row.resolution_comment ?? null,
     resolved_by_note_id: row.resolved_by_note_id ?? null,
     note_id: row.note_id ?? null,
+    document_id: row.document_id ?? null,
   };
 }

@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { processDocument, processHandwrittenNote, processTextNote } from "@/ai/pipeline/process";
 import { refreshFlaggedMetaNotes, upsertDailyMetaNote } from "@/ai/pipeline/memory";
 import { parseImportedMarkdown } from "@/lib/importer";
+import { isReturnToMarginDocument } from "@/lib/return-to-margin";
+import { parseDailyKey } from "@/lib/dates";
 import { withUserAi } from "@/lib/ai-credentials";
 import { saveMetaNoteEdit } from "@/features/meta-notes/actions";
 
@@ -139,18 +141,21 @@ export async function importResearchDocument(raw: string) {
   });
   revalidatePath("/research");
   revalidatePath("/");
-  return { document: data };
+  return { document: data, review: isReturnToMarginDocument(content) };
 }
 
-export async function refreshToday() {
+export async function refreshToday(date?: string) {
   const { user } = await requireUser();
+  const target = date ? parseDailyKey(date) : new Date();
   after(async () => {
     await withUserAi(user.id, { consume: true }, async () => {
-      await upsertDailyMetaNote(user.id, new Date());
-      await refreshFlaggedMetaNotes(user.id);
+      await upsertDailyMetaNote(user.id, target);
+      if (!date) await refreshFlaggedMetaNotes(user.id);
     });
   });
   revalidatePath("/today");
+  if (date) revalidatePath(`/today/${date}`);
+  revalidatePath("/today/archive");
   return { ok: true };
 }
 
@@ -183,7 +188,9 @@ export async function resolveInboxItem(
     | "link_entity"
     | "not_ticker"
     | "confirm_contradiction"
-    | "reject_contradiction",
+    | "reject_contradiction"
+    | "return_to_loose_ends"
+    | "resolve_loose_end",
   payload?: Record<string, string>,
 ) {
   const { supabase, user } = await requireUser();
@@ -298,6 +305,35 @@ export async function resolveInboxItem(
         .eq("user_id", user.id);
     }
     revalidatePath("/research");
+  }
+
+  if (item.category === "loose_end") {
+    const kind = item.object_type === "followup" ? "followup" : "question";
+    const objectId = item.object_id;
+    if (!objectId) return { error: "Loose end pointer is missing." };
+    if (action === "return_to_loose_ends") {
+      if (kind === "question") {
+        await supabase.from("questions").update({ status: "open", updated_at: new Date().toISOString() }).eq("id", objectId).eq("user_id", user.id);
+      } else {
+        await supabase.from("followups").update({ status: "open", updated_at: new Date().toISOString() }).eq("id", objectId).eq("user_id", user.id);
+      }
+    } else if (action === "resolve_loose_end") {
+      const now = new Date().toISOString();
+      if (kind === "question") {
+        await supabase.from("questions").update({ status: "resolved", resolved_at: now, updated_at: now }).eq("id", objectId).eq("user_id", user.id);
+      } else {
+        await supabase.from("followups").update({ status: "completed", completed_at: now, updated_at: now }).eq("id", objectId).eq("user_id", user.id);
+      }
+    } else if (action === "dismiss") {
+      const now = new Date().toISOString();
+      if (kind === "question") {
+        await supabase.from("questions").update({ status: "dismissed", updated_at: now }).eq("id", objectId).eq("user_id", user.id);
+      } else {
+        await supabase.from("followups").update({ status: "dismissed", updated_at: now }).eq("id", objectId).eq("user_id", user.id);
+      }
+    }
+    revalidatePath("/research/loose-ends");
+    revalidatePath("/today");
   }
 
   await supabase

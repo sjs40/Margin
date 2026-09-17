@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createLooseEnd, searchRecentNotes, updateLooseEnd, type LooseEndKind } from "@/features/research/actions";
+import { createLooseEnd, searchRecentNotes, sendLooseEndToInbox, updateLooseEnd, type LooseEndKind } from "@/features/research/actions";
+import { CopyContextButton } from "@/features/context/copy-context-button";
 
 export type LooseEndView = {
   id: string;
@@ -21,6 +22,7 @@ export type LooseEndView = {
   resolution_comment: string | null;
   resolved_by_note_id: string | null;
   note_id: string | null;
+  document_id?: string | null;
   resolving_note_title?: string | null;
 };
 
@@ -67,11 +69,24 @@ export function LooseEndRow({
           {item.resolution_comment ? (
             <p className="mt-1 text-muted-foreground">Why: {item.resolution_comment}</p>
           ) : null}
+          {item.note_id ? (
+            <Link href={`/notes/${item.note_id}`} className="mt-1 block text-[11px] underline">
+              Originating note
+            </Link>
+          ) : null}
+          {item.document_id ? (
+            <Link href={`/documents/${item.document_id}`} className="mt-1 block text-[11px] underline">
+              Originating document
+            </Link>
+          ) : null}
           {item.resolved_by_note_id ? (
             <Link href={`/notes/${item.resolved_by_note_id}`} className="text-[11px] underline">
               {item.resolving_note_title || "Resolving note"}
             </Link>
           ) : null}
+          <div className="mt-2">
+            <CopyContextButton seedType={item.kind} seedId={item.id} />
+          </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger className="min-h-11 shrink-0 rounded-md border border-border px-2.5 text-sm md:h-8 md:min-h-8">
@@ -82,6 +97,15 @@ export function LooseEndRow({
               {item.kind === "followup" ? "Complete" : "Resolve"}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setForm("dismiss")}>Dismiss</DropdownMenuItem>
+            {item.status === "open" ? (
+              <DropdownMenuItem
+                onSelect={() => {
+                  void sendLooseEndToInbox({ id: item.id, kind: item.kind }).then(() => window.location.reload());
+                }}
+              >
+                Send to Inbox
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={() => setForm("comment")}>Add response</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

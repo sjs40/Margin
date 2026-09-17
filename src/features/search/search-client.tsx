@@ -54,7 +54,7 @@ export function SearchClient() {
     }
   }
 
-  const groups = ["company", "theme", "note", "document", "meta_note"] as const;
+  const groups = ["company", "theme", "knowledge_object", "note", "document", "meta_note"] as const;
 
   return (
     <div className="mx-auto max-w-3xl">

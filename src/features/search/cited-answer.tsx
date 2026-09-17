@@ -26,6 +26,8 @@ export function hrefFor(kind: string, id: string) {
       return `/research/themes/${id}`;
     case "meta_note":
       return "/today";
+    case "knowledge_object":
+      return `/research/knowledge/${id}`;
     default:
       return "/research";
   }

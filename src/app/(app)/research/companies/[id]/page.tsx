@@ -8,6 +8,8 @@ import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-sec
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
+import { CopyContextButton } from "@/features/context/copy-context-button";
+import { DevelopAction } from "@/features/context/develop-action";
 import { fetchQuote } from "@/lib/prices/provider";
 import { formatQuotePrice, formatTickerPrice, percentChange } from "@/lib/prices/format";
 
@@ -122,6 +124,8 @@ export default async function CompanyPage({
         <h1 className="mt-2 font-serif text-4xl">{entity.canonical_name}</h1>
         <div className="mt-3">
           <ExportLink href={`/api/export/company/${entity.id}`} label="Export" />
+          <CopyContextButton seedType="company" seedId={entity.id} />
+          <DevelopAction />
         </div>
         {currentQuote ? (
           <p className="mt-3 font-mono text-sm text-muted-foreground">
