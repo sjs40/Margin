@@ -148,6 +148,17 @@ export function looseEndSourceHref(
   return provenanceFromLooseEnd(input).sourceHref;
 }
 
+export function navigableLooseEndSourceHref(
+  sourceHref: string | null,
+  currentPathname?: string | null,
+): string | null {
+  if (!sourceHref) return null;
+  if (!currentPathname) return sourceHref;
+  const path = currentPathname.split("?")[0];
+  if (path === sourceHref) return null;
+  return sourceHref;
+}
+
 export function questionStatusForAction(status: LooseEndActionStatus): QuestionStatus {
   switch (status) {
     case "open":

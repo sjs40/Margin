@@ -11,6 +11,7 @@ import {
   looseEndSourceHref,
   mapFollowupRecord,
   mapQuestionRecord,
+  navigableLooseEndSourceHref,
   provenanceFromLooseEnd,
   questionStatusForAction,
 } from "@/lib/loose-ends";
@@ -26,6 +27,22 @@ describe("formatResolvedThreads", () => {
 
   it("returns empty string when there is nothing resolved", () => {
     expect(formatResolvedThreads([])).toBe("");
+  });
+});
+
+describe("navigableLooseEndSourceHref", () => {
+  it("keeps the originating source link when the user is on another page", () => {
+    expect(navigableLooseEndSourceHref("/notes/note-1", "/research/loose-ends")).toBe("/notes/note-1");
+    expect(navigableLooseEndSourceHref("/documents/doc-1", "/notes/note-1")).toBe("/documents/doc-1");
+  });
+
+  it("does not link to the page the user is already on", () => {
+    expect(navigableLooseEndSourceHref("/notes/note-1", "/notes/note-1")).toBeNull();
+    expect(navigableLooseEndSourceHref("/notes/note-1", "/notes/note-1?tab=open")).toBeNull();
+  });
+
+  it("returns null when there is no originating source", () => {
+    expect(navigableLooseEndSourceHref(null, "/today")).toBeNull();
   });
 });
 

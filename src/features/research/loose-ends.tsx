@@ -22,7 +22,7 @@ export function LooseEnds({
   return (
     <aside>
       <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        <Link href={href} className="hover:text-foreground">
+        <Link href={href} className="inline-flex min-h-11 items-center hover:text-foreground">
           Loose Ends
         </Link>
       </h2>
