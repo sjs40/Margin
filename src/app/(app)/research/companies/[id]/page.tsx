@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MetaNoteEditor } from "@/features/meta-notes/meta-note-editor";
 import { MetaNoteHistory } from "@/features/meta-notes/meta-note-history";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
+import { CopyContextButton } from "@/features/context/copy-context-button";
+import { DevelopAction } from "@/features/context/develop-action";
 import { fetchQuote } from "@/lib/prices/provider";
 import { formatQuotePrice, formatTickerPrice, percentChange } from "@/lib/prices/format";
 import { LOOSE_END_SELECT } from "@/lib/loose-ends";
@@ -123,6 +125,8 @@ export default async function CompanyPage({
         <h1 className="mt-2 font-serif text-4xl">{entity.canonical_name}</h1>
         <div className="mt-3">
           <ExportLink href={`/api/export/company/${entity.id}`} label="Export" />
+          <CopyContextButton seedType="company" seedId={entity.id} />
+          <DevelopAction />
         </div>
         {currentQuote ? (
           <p className="mt-3 font-mono text-sm text-muted-foreground">
@@ -167,7 +171,7 @@ export default async function CompanyPage({
             <li key={note.id}>
               <Link href={`/notes/${note.id}`} className="block">
                 <p className="font-mono text-[11px] text-muted-foreground">
-                  {formatLongDate(note.captured_at)}
+                  <LocalDate iso={note.captured_at} />
                   {note.price_at_capture != null && entity.ticker
                     ? ` · ${formatTickerPrice(entity.ticker, Number(note.price_at_capture))}`
                     : ""}

@@ -51,8 +51,10 @@ export function InboxActions({
       | "accept_theme"
       | "link_entity"
       | "not_ticker"
-      | "confirm_contradiction"
-      | "reject_contradiction",
+    | "confirm_contradiction"
+    | "reject_contradiction"
+    | "return_to_loose_ends"
+    | "resolve_loose_end",
     payload?: Record<string, string>,
   ) {
     setError(null);
@@ -197,6 +199,16 @@ export function InboxActions({
             onClick={() => void run("reject_contradiction")}
           >
             Not a contradiction
+          </Button>
+        </div>
+      ) : null}
+      {item.category === "loose_end" ? (
+        <div className="flex flex-wrap gap-2">
+          <Button className="min-h-11 md:h-8 md:min-h-8" onClick={() => void run("return_to_loose_ends")}>
+            Return to Loose Ends
+          </Button>
+          <Button className="min-h-11 md:h-8 md:min-h-8" variant="outline" onClick={() => void run("resolve_loose_end")}>
+            Resolve / Complete
           </Button>
         </div>
       ) : null}

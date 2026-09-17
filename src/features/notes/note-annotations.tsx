@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import {
   createNoteAnnotation,
   deleteNoteAnnotation,
@@ -59,7 +59,9 @@ function AnnotationItem({
 
   return (
     <li className="rounded-md border border-border p-3 text-sm">
-      <p className="font-mono text-[11px] text-muted-foreground">{formatLongDate(item.created_at)}</p>
+      <p className="font-mono text-[11px] text-muted-foreground">
+        <LocalDate iso={item.created_at} />
+      </p>
       {editing ? (
         <div className="mt-2 space-y-2">
           <Textarea value={value} onChange={(event) => setValue(event.target.value)} rows={3} />

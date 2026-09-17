@@ -39,6 +39,11 @@ export default async function ResearchPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="font-serif text-3xl">Research</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        <Link href="/research/knowledge">Knowledge</Link>
+        {" · "}
+        <Link href="/research/loose-ends">Loose Ends</Link>
+      </p>
       <div className="mt-8 grid gap-10 md:grid-cols-2">
         <section>
           <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">

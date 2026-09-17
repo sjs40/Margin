@@ -25,6 +25,12 @@ const SECTION_ALIASES: Record<string, string> = {
   "follow-ups": "followUps",
   followups: "followUps",
   "potential investment implications": "implications",
+  "new insights": "newInsights",
+  "framework updates": "frameworkUpdates",
+  "new evidence": "newEvidence",
+  "counterevidence / boundary conditions": "counterevidence",
+  "changed views": "changedViews",
+  "nothing worth saving": "nothingWorthSaving",
 };
 
 export function parseImportedMarkdown(raw: string): ImportedDocument {

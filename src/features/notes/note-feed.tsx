@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatCapturedAt } from "@/lib/dates";
+import { LocalTime } from "@/components/local-datetime";
 import { hostnameOf } from "@/lib/urls";
 import { ProcessingBadge } from "@/components/processing-badge";
 import type { Note } from "@/types/domain";
@@ -29,7 +29,7 @@ export function NoteFeed({ notes }: { notes: FeedNote[] }) {
               className="grid min-h-11 grid-cols-[5.5rem_minmax(0,1fr)] gap-4 py-4 hover:bg-secondary/40"
             >
               <div className="pt-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                {formatCapturedAt(note.captured_at)}
+                <LocalTime iso={note.captured_at} />
               </div>
               <div>
                 <p className="font-serif text-[17px] leading-7">

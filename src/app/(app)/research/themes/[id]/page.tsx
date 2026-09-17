@@ -7,6 +7,8 @@ import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
 import { MergeThemeControl } from "@/features/research/merge-theme-control";
+import { CopyContextButton } from "@/features/context/copy-context-button";
+import { DevelopAction } from "@/features/context/develop-action";
 import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function ThemePage({
@@ -67,6 +69,8 @@ export default async function ThemePage({
       <h1 className="font-serif text-4xl">{theme.name}</h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <ExportLink href={`/api/export/theme/${theme.id}`} label="Export" />
+        {meta ? <CopyContextButton seedType="meta_note" seedId={meta.id} /> : <CopyContextButton seedType="theme" seedId={theme.id} />}
+        <DevelopAction />
         <MergeThemeControl
           themeId={theme.id}
           themes={(otherThemes ?? []).map((item) => ({ id: item.id, name: item.name }))}

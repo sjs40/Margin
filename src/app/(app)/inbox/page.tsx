@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InboxActions } from "@/features/inbox/inbox-actions";
+import { LocalDate } from "@/components/local-datetime";
 import { LooseEndInboxActions } from "@/features/inbox/loose-end-inbox-actions";
 import { LooseEndSourceLine } from "@/features/research/loose-end-row";
-import { formatLongDate } from "@/lib/dates";
 import { findSimilarTheme } from "@/lib/theme-resolution";
 import { asAliasList } from "@/lib/tickers";
 import { looseEndInboxCardModel, type LooseEndInboxPayload } from "@/lib/loose-ends";
@@ -114,7 +114,7 @@ function ClaimLine({ label, claim }: { label: string; claim?: ClaimSnippet }) {
       </span>
       {claim.date ? (
         <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-          {formatLongDate(claim.date)}
+          <LocalDate iso={claim.date} />
         </span>
       ) : null}
       <span className="mt-1 block">{claim.text}</span>

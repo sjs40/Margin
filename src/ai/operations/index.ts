@@ -6,6 +6,7 @@ import {
   DAILY_SYNTHESIS_PROMPT_VERSION,
   DISCOVER_CONNECTIONS_PROMPT_VERSION,
   HANDWRITING_PROMPT_VERSION,
+  KNOWLEDGE_DISPOSITION_PROMPT_VERSION,
   PARSE_IMPORT_PROMPT_VERSION,
   PARSE_NOTE_PROMPT_VERSION,
   THEME_MEMORY_PROMPT_VERSION,
@@ -15,10 +16,12 @@ import {
   dailySynthesisPrompt,
   discoverConnectionsPrompt,
   handwritingPrompt,
+  knowledgeDispositionPrompt,
   parseImportPrompt,
   parseNotePrompt,
   themeMemoryPrompt,
   type AttachedSource,
+  type ExistingKnowledgeLine,
 } from "@/ai/prompts";
 import { AskAnswerSchema } from "@/ai/schemas/ask";
 import { HandwritingSchema } from "@/ai/schemas/handwriting";
@@ -29,13 +32,20 @@ import {
   MemoryUpdateSchema,
   ParsedImportSchema,
 } from "@/ai/schemas/memory-update";
+import { KnowledgeDispositionSchema } from "@/ai/schemas/knowledge";
 import { ParsedNoteSchema } from "@/ai/schemas/parsed-note";
 
 export const ai = {
-  parseNote(rawText: string, existingThemes: string[], attachedSources: AttachedSource[] = [], taggedTickers: string[] = []) {
+  parseNote(
+    rawText: string,
+    existingThemes: string[],
+    attachedSources: AttachedSource[] = [],
+    taggedTickers: string[] = [],
+    existingKnowledge: ExistingKnowledgeLine[] = [],
+  ) {
     return generateStructured({
       schema: ParsedNoteSchema,
-      prompt: parseNotePrompt(rawText, existingThemes, attachedSources, taggedTickers),
+      prompt: parseNotePrompt(rawText, existingThemes, attachedSources, taggedTickers, existingKnowledge),
       model: aiConfig.fastModel,
       thinkingLevel: "low",
       promptVersion: PARSE_NOTE_PROMPT_VERSION,
@@ -55,10 +65,10 @@ export const ai = {
     });
   },
 
-  parseAIImport(raw: string, existingThemes: string[]) {
+  parseAIImport(raw: string, existingThemes: string[], existingKnowledge: ExistingKnowledgeLine[] = []) {
     return generateStructured({
       schema: ParsedImportSchema,
-      prompt: parseImportPrompt(raw, existingThemes),
+      prompt: parseImportPrompt(raw, existingThemes, existingKnowledge),
       model: aiConfig.fastModel,
       thinkingLevel: "low",
       promptVersion: PARSE_IMPORT_PROMPT_VERSION,
@@ -134,7 +144,11 @@ export const ai = {
     });
   },
 
-  discoverConnections(input: { notes: string; existingThemes: string[] }) {
+  discoverConnections(input: {
+    notes: string;
+    existingThemes: string[];
+    existingKnowledge?: ExistingKnowledgeLine[];
+  }) {
     return generateStructured({
       schema: ConnectionDiscoverySchema,
       prompt: discoverConnectionsPrompt(input),
@@ -142,6 +156,17 @@ export const ai = {
       thinkingLevel: "medium",
       promptVersion: DISCOVER_CONNECTIONS_PROMPT_VERSION,
       jobType: "discover_connections",
+    });
+  },
+
+  classifyKnowledge(input: { candidate: string; existing: string }) {
+    return generateStructured({
+      schema: KnowledgeDispositionSchema,
+      prompt: knowledgeDispositionPrompt(input),
+      model: aiConfig.fastModel,
+      thinkingLevel: "low",
+      promptVersion: KNOWLEDGE_DISPOSITION_PROMPT_VERSION,
+      jobType: "classify_knowledge",
     });
   },
 

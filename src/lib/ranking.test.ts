@@ -139,6 +139,13 @@ describe("missingVectorIdsBySourceType", () => {
     expect(missingVectorIdsBySourceType(recent, vectors, "note")).toEqual(["note-200"]);
     expect(missingVectorIdsBySourceType(recent, vectors, "document")).toEqual(["old-doc"]);
     expect(missingVectorIdsBySourceType(recent, vectors, "meta_note")).toEqual(["daily"]);
+    expect(
+      missingVectorIdsBySourceType(
+        recent,
+        [...vectors, { sourceId: "insight-1", sourceType: "knowledge_object", similarity: 0.84 }],
+        "knowledge_object",
+      ),
+    ).toEqual(["insight-1"]);
   });
 });
 

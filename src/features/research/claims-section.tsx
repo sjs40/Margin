@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { groupClaimsByType } from "@/lib/claims";
 
 export type CompanyClaim = {
@@ -62,7 +62,7 @@ export function ClaimsSection({ claims }: { claims: CompanyClaim[] }) {
                         </Badge>
                       ) : null}
                       <span className="font-mono text-[11px] text-muted-foreground">
-                        {formatLongDate(claim.captured_at ?? claim.created_at)}
+                        <LocalDate iso={claim.captured_at ?? claim.created_at} />
                       </span>
                       {claim.note_id ? (
                         <Link href={`/notes/${claim.note_id}`} className="text-[11px] underline">

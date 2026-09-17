@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { setHostedAiEnabled, triggerSecTickerSync } from "@/features/admin/actions";
+import { setHostedAiEnabled, triggerSecTickerSync, dryRunKnowledgeBackfill, startKnowledgeBackfill } from "@/features/admin/actions";
 
 export function AdminControls({
   hostedEnabled,
@@ -31,6 +31,7 @@ export function AdminControls({
   const [pending, setPending] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
 
   async function onToggle(next: boolean) {
     setPending(true);
@@ -100,6 +101,46 @@ export function AdminControls({
           {syncing ? "Syncing…" : "Sync SEC tickers now"}
         </Button>
         {syncMessage ? <p className="mt-3 text-sm text-muted-foreground">{syncMessage}</p> : null}
+      </section>
+
+      <section className="rounded-lg border border-border p-5">
+        <h2 className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Knowledge backfill
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Conservative extraction over existing notes/documents. Dry-run first. Does not run on deploy.
+          Uses your AI policy (hosted trial counts as actions).
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="min-h-11"
+            onClick={async () => {
+              const result = await dryRunKnowledgeBackfill();
+              if ("error" in result && result.error) setBackfillMessage(result.error);
+              else if ("ok" in result)
+                setBackfillMessage(
+                  `Dry run: ${result.remainingNotes} notes and ${result.remainingDocuments} documents remaining.`,
+                );
+            }}
+          >
+            Dry-run count
+          </Button>
+          <Button
+            className="min-h-11"
+            onClick={async () => {
+              const result = await startKnowledgeBackfill();
+              if ("error" in result && result.error) setBackfillMessage(result.error);
+              else if ("ok" in result)
+                setBackfillMessage(
+                  `Batch: processed ${result.processed}, proposed ${result.proposed}, skipped ${result.skipped}. ${result.done ? "Complete." : "Run again for the next batch."}`,
+                );
+            }}
+          >
+            Run one batch
+          </Button>
+        </div>
+        {backfillMessage ? <p className="mt-3 text-sm text-muted-foreground">{backfillMessage}</p> : null}
       </section>
 
       <section>

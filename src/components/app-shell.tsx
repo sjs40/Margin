@@ -17,7 +17,6 @@ const ITEMS = [
   { href: "/", label: "Capture", icon: SquarePen },
   { href: "/today", label: "Today", icon: Library },
   { href: "/research", label: "Research", icon: Library },
-  { href: "/search", label: "Search", icon: Search },
   { href: "/inbox", label: "Inbox", icon: Inbox },
 ];
 
@@ -43,6 +42,16 @@ export function AppShell({
             Margin
           </Link>
           <div className="flex items-center gap-1">
+            <Link
+              href="/search"
+              aria-label="Search"
+              className={cn(
+                "inline-flex size-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground",
+                pathname.startsWith("/search") && "bg-secondary text-foreground",
+              )}
+            >
+              <Search className="size-4" />
+            </Link>
             <Link
               href="/camera"
               className={cn(
@@ -89,6 +98,9 @@ export function AppShell({
                   <p className="px-2 py-1.5 text-xs text-muted-foreground">{email}</p>
                 ) : null}
                 <DropdownMenuItem asChild>
+                  <Link href="/what-is-margin">What is Margin?</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 {isAdmin ? (
@@ -114,7 +126,7 @@ export function AppShell({
         className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Mobile"
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-4">
           {ITEMS.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const Icon = item.icon;

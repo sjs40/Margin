@@ -12,8 +12,8 @@ Margin is a monolithic Next.js App Router application. There are no microservice
 ## Product layers
 
 1. **Capture.** Typed notes, camera pages, pasted AI imports. Save is synchronous. AI runs afterward via `after()`.
-2. **Research memory.** Parse, resolve entities/themes, store claims/questions/follow-ups, embed, update meta notes.
-3. **Analyst interface.** Home, Today, Research, Search/Ask, Inbox.
+2. **Research memory.** Parse, resolve entities/themes, store claims/questions/follow-ups, extract conservative Insights/Frameworks, embed, update meta notes.
+3. **Analyst interface.** Home, Today (with Daily Archive), Research (including Knowledge), Search/Ask, Inbox.
 
 ## Request flow
 
@@ -25,6 +25,7 @@ Capture box
       → parseNote
       → resolve companies/themes
       → store claims/questions/follow-ups
+      → persist high-confidence insight/framework candidates as proposed knowledge
       → embed
       → mark ready (or failed + Inbox)
 ```

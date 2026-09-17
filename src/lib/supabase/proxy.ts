@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/manifest") ||
+    path.startsWith("/api/assistant/") ||
     path === "/sw.js";
 
   if (!user && !isPublic) {

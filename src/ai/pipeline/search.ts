@@ -228,7 +228,7 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
   const supabase = createAdminClient();
   const ticker = normalizedTickerQuery(query);
 
-  const [{ data: recentNotes }, { data: recentDocuments }, { data: companies }, { data: themes }] =
+  const [{ data: recentNotes }, { data: recentDocuments }, { data: companies }, { data: themes }, { data: knowledge }] =
     await Promise.all([
       supabase
         .from("notes")
@@ -244,6 +244,13 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
         .limit(RECENCY_DOCUMENT_LIMIT),
       supabase.from("entities").select("id, ticker, canonical_name").eq("entity_type", "company"),
       supabase.from("themes").select("id, name, description").eq("user_id", userId).eq("status", "active"),
+      supabase
+        .from("knowledge_objects")
+        .select("id, kind, title, summary, body, updated_at, state")
+        .eq("user_id", userId)
+        .in("state", ["active", "proposed"])
+        .order("updated_at", { ascending: false })
+        .limit(60),
     ]);
 
   let noteRows = uniqueById((recentNotes ?? []) as NoteRow[]);
@@ -278,12 +285,28 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
     vectorScore: 0,
     recencyScore: 0.5,
   }));
+  const knowledgeHits: RankedHit[] = (knowledge ?? []).map((object) => {
+    const text = `${object.title} ${object.summary} ${object.body}`;
+    return {
+      id: object.id,
+      kind: "knowledge_object" as const,
+      title: object.title,
+      snippet: object.summary,
+      date: object.updated_at,
+      sourceType: object.kind,
+      entityScore: 0,
+      lexicalScore: lexicalScore(query, text),
+      vectorScore: 0,
+      recencyScore: recencyScore(object.updated_at),
+    };
+  });
 
   const seededIds = [
     ...noteRows.map((note) => ({ id: note.id })),
     ...documentRows.map((document) => ({ id: document.id })),
     ...companyHits.map((hit) => ({ id: hit.id })),
     ...themeHits.map((hit) => ({ id: hit.id })),
+    ...knowledgeHits.map((hit) => ({ id: hit.id })),
   ];
   const vectors = await matchQueryVectors(supabase, userId, query);
   const [extraNotes, extraDocuments] = await Promise.all([
@@ -294,6 +317,37 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
       missingVectorIdsBySourceType(seededIds, vectors, "document"),
     ),
   ]);
+  const extraKnowledgeIds = missingVectorIdsBySourceType(seededIds, vectors, "knowledge_object");
+  const extraKnowledge =
+    extraKnowledgeIds.length > 0
+      ? (
+          await supabase
+            .from("knowledge_objects")
+            .select("id, kind, title, summary, body, updated_at, state")
+            .eq("user_id", userId)
+            .in("id", extraKnowledgeIds)
+        ).data ?? []
+      : [];
+  const allKnowledgeHits: RankedHit[] = [
+    ...knowledgeHits,
+    ...extraKnowledge
+      .filter((object) => !knowledgeHits.some((hit) => hit.id === object.id))
+      .map((object) => {
+        const text = `${object.title} ${object.summary} ${object.body}`;
+        return {
+          id: object.id,
+          kind: "knowledge_object" as const,
+          title: object.title,
+          snippet: object.summary,
+          date: object.updated_at,
+          sourceType: object.kind,
+          entityScore: 0,
+          lexicalScore: lexicalScore(query, text),
+          vectorScore: 0,
+          recencyScore: recencyScore(object.updated_at),
+        };
+      }),
+  ];
   noteRows = uniqueById([...noteRows, ...extraNotes]);
   documentRows = uniqueById([...documentRows, ...extraDocuments]);
 
@@ -315,6 +369,7 @@ export async function hybridSearch(userId: string, query: string): Promise<Ranke
     ),
     ...companyHits,
     ...themeHits,
+    ...allKnowledgeHits,
   ];
 
   return mergeVectorHits(hits, vectors)

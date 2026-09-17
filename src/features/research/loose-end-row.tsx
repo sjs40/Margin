@@ -13,6 +13,7 @@ import {
   updateLooseEnd,
   type LooseEndKind,
 } from "@/features/research/actions";
+import { CopyContextButton } from "@/features/context/copy-context-button";
 import { navigableLooseEndSourceHref, type LooseEndView } from "@/lib/loose-ends";
 
 export type { LooseEndView };
@@ -103,6 +104,9 @@ export function LooseEndRow({
               {item.resolving_note_title || "Resolving note"}
             </Link>
           ) : null}
+          <div className="mt-2">
+            <CopyContextButton seedType={item.kind} seedId={item.id} />
+          </div>
         </div>
         <Button
           type="button"

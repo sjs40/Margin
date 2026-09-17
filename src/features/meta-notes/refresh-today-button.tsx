@@ -4,8 +4,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { refreshToday } from "@/features/capture/actions";
 
-export function RefreshTodayButton() {
+export function RefreshTodayButton({ date }: { date?: string }) {
   const [pending, setPending] = useState(false);
+  const historical = Boolean(date);
   return (
     <Button
       variant="outline"
@@ -13,12 +14,16 @@ export function RefreshTodayButton() {
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        await refreshToday();
+        await refreshToday(date);
         setPending(false);
         window.location.reload();
       }}
     >
-      {pending ? "Generating…" : "Generate / Refresh Today"}
+      {pending
+        ? "Generating…"
+        : historical
+          ? "Regenerate this day"
+          : "Generate / Refresh Today"}
     </Button>
   );
 }

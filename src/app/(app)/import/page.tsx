@@ -5,8 +5,8 @@ export default function ImportPage() {
     <div className="mx-auto max-w-3xl">
       <h1 className="font-serif text-3xl">Import</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Paste a MetaNote or any Markdown from ChatGPT, Claude, Gemini, or your own files.
-        Frontmatter is optional.
+        Paste a MetaNote, a Return to Margin handoff, or any Markdown from ChatGPT, Claude, Gemini, or your own files.
+        Standardized Return to Margin headings open a review screen. Frontmatter is optional.
       </p>
       <div className="mt-6">
         <ImportForm />

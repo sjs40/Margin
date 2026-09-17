@@ -10,8 +10,10 @@ src/ai
   prompts/index.ts         versioned prompts
   schemas/                 Zod structured output
   pipeline/process.ts      note / handwriting / import
-  pipeline/memory.ts       daily / company / theme / nightly
+  pipeline/knowledge.ts    conservative insight/framework persistence
+  pipeline/memory.ts       daily / company / theme / nightly / grounded discovery
   pipeline/search.ts       hybrid retrieval + Ask Margin
+  pipeline/backfill.ts     bounded knowledge backfill (admin dry-run, then batches)
 ```
 
 ## Models
@@ -32,7 +34,7 @@ Fast tasks request low thinking. Synthesis/discovery request medium thinking.
 
 Mechanical operations use Zod schemas. Invalid output is retried once with repair instructions. A second failure marks the job failed, preserves the note, and surfaces Inbox.
 
-Prompt versions (`parse-note-v3`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, `ask-margin-v2`) are stored on `ai_jobs`.
+Prompt versions (`parse-note-v4`, `parse-ai-import-v2`, `company-memory-v3`, `daily-synthesis-v3`, `claim-conflicts-v1`, `discover-connections-v2`, `knowledge-disposition-v1`, `ask-margin-v2`) are stored on `ai_jobs`.
 
 ## Retrieval for memory updates
 
@@ -48,6 +50,12 @@ Company/theme updates send:
 Not the entire history.
 
 After a note is parsed, `updateCompanyMeta` also runs `detectClaimConflicts` (`claim-conflicts-v1`) against up to N prior active claims for that company. Relations at or above the user's confidence floor are stored on `claim_relations`. `contradicts` relations create an Inbox item. Prior claim status does not change until the user confirms. If contradiction detection is off in `user_settings`, this operation is skipped and does not consume a hosted action.
+
+High-confidence durable insights/frameworks are classified against existing knowledge and stored as **proposed** objects with provenance. Exact duplicates are linked, not multiplied. Meaningful merges require confirmation. `discoverAndInbox()` persists grounded connections as proposed `knowledge_relationships` and grounded loose ends as questions; ungrounded model output is logged, not dumped into Inbox.
+
+Copy Context builds a deterministic core from explicit relationships, then a bounded retrieved layer via hybrid search. It does not spend a hosted AI action to concatenate that core.
+
+Knowledge backfill is an admin dry-run plus batched execute. It is never run by migration or deploy. Each batch consumes hosted/BYOK policy like any other user job.
 
 Adding or editing a note annotation re-embeds the note (`raw_text` + annotations) via `after()`. Annotations are not re-parsed for claims.
 

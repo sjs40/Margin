@@ -25,7 +25,13 @@ export function ImportForm() {
           setError(result.error);
           return;
         }
-        router.push(result.document ? `/documents/${result.document.id}` : "/");
+        router.push(
+          result.review && result.document
+            ? `/import/review/${result.document.id}`
+            : result.document
+              ? `/documents/${result.document.id}`
+              : "/",
+        );
       }}
     >
       <Textarea

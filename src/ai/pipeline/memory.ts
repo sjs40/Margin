@@ -10,6 +10,7 @@ import { formatResolvedThreads } from "@/lib/loose-ends";
 import { getUserSettings } from "@/lib/user-settings";
 import { formatThemePromptLine } from "@/lib/theme-resolution";
 import { asAliasList } from "@/lib/tickers";
+import { persistExtractedKnowledge, proposeRelationshipFromNotes, loadExistingKnowledgeLines } from "@/ai/pipeline/knowledge";
 
 type MemoryNote = {
   id: string;
@@ -533,12 +534,15 @@ export async function discoverAndInbox(userId: string) {
     .eq("user_id", userId)
     .eq("status", "active");
   if (!notes?.length) return;
+  const existingKnowledge = await loadExistingKnowledgeLines(userId);
   const result = await ai.discoverConnections({
     notes: notes.map(formatNote).join("\n\n"),
     existingThemes: (themes ?? []).map((theme) =>
       formatThemePromptLine({ name: theme.name, aliases: asAliasList(theme.aliases) }),
     ),
+    existingKnowledge,
   });
+  const noteIds = new Set(notes.map((note) => note.id));
   for (const theme of result.data.emergingThemes) {
     await supabase.from("inbox_items").insert({
       user_id: userId,
@@ -546,6 +550,84 @@ export async function discoverAndInbox(userId: string) {
       title: `Potential theme: ${theme.name}`,
       body: theme.rationale,
       payload: theme,
+    });
+  }
+  for (const connection of result.data.connections) {
+    if (connection.confidence < 0.75) {
+      logger.info("ungrounded_connection", { reason: "low_confidence" });
+      continue;
+    }
+    const fromOk = connection.fromNoteId && noteIds.has(connection.fromNoteId);
+    const toOk = connection.toNoteId && noteIds.has(connection.toNoteId);
+    if (!fromOk || !toOk) {
+      logger.info("ungrounded_connection", { explanation: connection.explanation });
+      continue;
+    }
+    await proposeRelationshipFromNotes(userId, {
+      fromNoteId: connection.fromNoteId,
+      toNoteId: connection.toNoteId,
+      relationType: connection.relationType,
+      explanation: connection.explanation,
+      confidence: connection.confidence,
+    });
+  }
+  for (const insight of result.data.candidateInsights ?? []) {
+    const noteId = (insight.sourceNoteIds ?? []).find((id) => noteIds.has(id));
+    if (!noteId) {
+      logger.info("ungrounded_insight", { title: insight.title });
+      continue;
+    }
+    await persistExtractedKnowledge({
+      userId,
+      noteId,
+      origin: "ai",
+      entityIds: [],
+      themeIds: [],
+      claimIds: [],
+      candidateInsights: [insight],
+      candidateFrameworks: [],
+      idempotent: false,
+    });
+  }
+  for (const framework of result.data.candidateFrameworks ?? []) {
+    const noteId = (framework.sourceNoteIds ?? []).find((id) => noteIds.has(id));
+    if (!noteId) {
+      logger.info("ungrounded_framework", { title: framework.title });
+      continue;
+    }
+    await persistExtractedKnowledge({
+      userId,
+      noteId,
+      origin: "ai",
+      entityIds: [],
+      themeIds: [],
+      claimIds: [],
+      candidateInsights: [],
+      candidateFrameworks: [framework],
+      idempotent: false,
+    });
+  }
+  for (const looseEnd of result.data.looseEnds) {
+    const groundedNotes = (looseEnd.sourceNoteIds ?? []).filter((id) => noteIds.has(id));
+    if (groundedNotes.length === 0) {
+      logger.info("ungrounded_loose_end", { title: looseEnd.title, kind: looseEnd.kind });
+      continue;
+    }
+    const noteId = groundedNotes[0]!;
+    const { data: existing } = await supabase
+      .from("questions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("note_id", noteId)
+      .ilike("question_text", looseEnd.title)
+      .maybeSingle();
+    if (existing) continue;
+    await supabase.from("questions").insert({
+      user_id: userId,
+      note_id: noteId,
+      question_text: `${looseEnd.title}: ${looseEnd.detail}`,
+      status: "open",
+      source: "ai",
     });
   }
   return result.data;

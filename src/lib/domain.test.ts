@@ -27,6 +27,8 @@ describe("ParsedNoteSchema", () => {
       overallConfidence: 0.8,
     });
     expect(parsed.claims).toHaveLength(0);
+    expect(parsed.candidateInsights).toEqual([]);
+    expect(parsed.candidateFrameworks).toEqual([]);
   });
 });
 
