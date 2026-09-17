@@ -1,6 +1,6 @@
 export type RankedHit = {
   id: string;
-  kind: "note" | "document" | "company" | "theme" | "meta_note";
+  kind: "note" | "document" | "company" | "theme" | "meta_note" | "knowledge_object";
   title: string;
   snippet: string;
   date?: string;

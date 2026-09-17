@@ -9,10 +9,11 @@ import { asAliasList, extractCashtags, lookupTicker } from "@/lib/tickers";
 import { chunkDocument } from "@/lib/chunking";
 import { logger } from "@/lib/logger";
 import { withUserAi } from "@/lib/ai-credentials";
-import { estimateEmbeddingCost, roundCost } from "@/lib/cost";
 import { prepareNoteLinks } from "@/features/links/sync";
 import { updateCompanyMeta } from "@/ai/pipeline/memory";
 import { stampNotePrices } from "@/lib/prices/stamp";
+import { upsertEmbedding } from "@/ai/pipeline/embeddings";
+import { loadExistingKnowledgeLines, persistExtractedKnowledge } from "@/ai/pipeline/knowledge";
 import type { ParsedNote } from "@/ai/schemas/parsed-note";
 import type { ParsedImport } from "@/ai/schemas/memory-update";
 
@@ -193,18 +194,24 @@ async function storeParsedStructures(
     }
   }
 
+  const claimIds: string[] = [];
   if ("claims" in input.parsed) {
     for (const claim of input.parsed.claims) {
-      await supabase.from("claims").insert({
-        user_id: input.userId,
-        note_id: input.noteId ?? null,
-        document_id: input.documentId ?? null,
-        entity_id: entityIds[0] ?? null,
-        claim_text: claim.text,
-        claim_type: claim.type,
-        confidence: claim.confidence,
-        status: "active",
-      });
+      const { data: created } = await supabase
+        .from("claims")
+        .insert({
+          user_id: input.userId,
+          note_id: input.noteId ?? null,
+          document_id: input.documentId ?? null,
+          entity_id: entityIds[0] ?? null,
+          claim_text: claim.text,
+          claim_type: claim.type,
+          confidence: claim.confidence,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (created?.id) claimIds.push(created.id);
     }
   }
   for (const question of input.parsed.questions) {
@@ -231,7 +238,7 @@ async function storeParsedStructures(
       source: "ai",
     });
   }
-  return { resolved, themes, entityIds };
+  return { resolved, themes, entityIds, claimIds };
 }
 
 export async function reembedNoteWithAnnotations(noteId: string) {
@@ -257,34 +264,6 @@ export async function reembedNoteWithAnnotations(noteId: string) {
       metadata: { annotations: (annotations ?? []).length },
     });
   });
-}
-
-async function upsertEmbedding(
-  supabase: Admin,
-  input: {
-    userId: string;
-    sourceType: "note" | "document" | "meta_note";
-    sourceId: string;
-    chunkIndex: number;
-    content: string;
-    metadata?: Record<string, unknown>;
-  },
-) {
-  if (!input.content.trim()) return;
-  const embedded = await ai.embed(input.content);
-  await supabase.from("embeddings").upsert(
-    {
-      user_id: input.userId,
-      source_type: input.sourceType,
-      source_id: input.sourceId,
-      chunk_index: input.chunkIndex,
-      content: input.content,
-      embedding: embedded.values,
-      metadata: input.metadata ?? {},
-    },
-    { onConflict: "user_id,source_type,source_id,chunk_index" },
-  );
-  return roundCost(estimateEmbeddingCost(embedded.inputTokens));
 }
 
 export async function processTextNote(noteId: string) {
@@ -326,6 +305,7 @@ async function processTextNoteBound(
   try {
     const existing = await themeNames(supabase, note.user_id);
     const source = note.raw_text ?? "";
+    const existingKnowledge = await loadExistingKnowledgeLines(note.user_id);
     const parsed = await ai.parseNote(
       source,
       existing.map((theme) => formatThemePromptLine(theme)),
@@ -335,12 +315,23 @@ async function processTextNoteBound(
         description: link.description,
       })),
       extractCashtags(source),
+      existingKnowledge,
     );
     const stored = await storeParsedStructures(supabase, {
       userId: note.user_id,
       noteId,
       parsed: parsed.data,
       sourceText: source,
+    });
+    await persistExtractedKnowledge({
+      userId: note.user_id,
+      noteId,
+      origin: "ai",
+      entityIds: stored.entityIds,
+      themeIds: stored.themes.map((theme) => theme.id),
+      claimIds: stored.claimIds,
+      candidateInsights: parsed.data.candidateInsights ?? [],
+      candidateFrameworks: parsed.data.candidateFrameworks ?? [],
     });
     try {
       await stampNotePrices(supabase, noteId);
@@ -389,6 +380,8 @@ async function processTextNoteBound(
     });
     revalidatePath("/");
     revalidatePath("/today");
+    revalidatePath("/research");
+    revalidatePath("/research/knowledge");
     revalidatePath(`/notes/${noteId}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "parse failed";
@@ -540,15 +533,27 @@ async function processDocumentBound(
   });
   try {
     const existing = await themeNames(supabase, document.user_id);
+    const existingKnowledge = await loadExistingKnowledgeLines(document.user_id);
     const parsed = await ai.parseAIImport(
       document.raw_content,
       existing.map((theme) => formatThemePromptLine(theme)),
+      existingKnowledge,
     );
-    await storeParsedStructures(supabase, {
+    const stored = await storeParsedStructures(supabase, {
       userId: document.user_id,
       documentId,
       parsed: parsed.data,
       sourceText: document.raw_content,
+    });
+    await persistExtractedKnowledge({
+      userId: document.user_id,
+      documentId,
+      origin: "import",
+      entityIds: stored.entityIds,
+      themeIds: stored.themes.map((theme) => theme.id),
+      claimIds: stored.claimIds,
+      candidateInsights: parsed.data.candidateInsights ?? [],
+      candidateFrameworks: parsed.data.candidateFrameworks ?? [],
     });
     await supabase
       .from("documents")

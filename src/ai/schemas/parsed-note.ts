@@ -44,6 +44,29 @@ export const ParsedNoteSchema = z.object({
   followUps: z.array(z.string()),
   importance: z.number().min(0).max(1),
   overallConfidence: z.number().min(0).max(1),
+  candidateInsights: z
+    .array(
+      z.object({
+        title: z.string(),
+        summary: z.string(),
+        rationale: z.string(),
+        relatedTickers: z.array(z.string()),
+        relatedThemes: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .default([]),
+  candidateFrameworks: z
+    .array(
+      z.object({
+        title: z.string(),
+        formulation: z.string(),
+        mechanism: z.string(),
+        boundaryConditions: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .default([]),
 });
 
 export type ParsedNote = z.infer<typeof ParsedNoteSchema>;

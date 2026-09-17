@@ -7,9 +7,11 @@ Rules:
 - Prioritize durable insights over conversational summary.
 - Preserve counterarguments and unresolved questions.
 - Avoid false precision.
+- Insights are specific conclusions useful beyond the originating sentence. Reject mere summaries, restated claims, generic advice, and one-off facts.
+- Frameworks need an articulated mechanism. Reject slogans and unnamed vibes.
 - Return schema-compliant JSON only.`;
 
-export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v3";
+export const PARSE_NOTE_PROMPT_VERSION = "parse-note-v4";
 
 export type AttachedSource = {
   url: string;
@@ -32,11 +34,26 @@ Treat the source note as the user's comments and take. Use attached metadata onl
 `;
 }
 
+export type ExistingKnowledgeLine = {
+  id: string;
+  kind: "insight" | "framework";
+  title: string;
+  summary: string;
+};
+
+function existingKnowledgeBlock(items: ExistingKnowledgeLine[] = []): string {
+  if (items.length === 0) return "- none yet";
+  return items
+    .map((item) => `- [${item.kind}] ${item.id} — ${item.title}: ${item.summary}`)
+    .join("\n");
+}
+
 export function parseNotePrompt(
   rawText: string,
   existingThemes: string[],
   attachedSources: AttachedSource[] = [],
   taggedTickers: string[] = [],
+  existingKnowledge: ExistingKnowledgeLine[] = [],
 ): string {
   return `${ANALYST_PREAMBLE}
 
@@ -52,10 +69,15 @@ User-tagged tickers:
 ${taggedTickers.length ? taggedTickers.map((ticker) => `- $${ticker}`).join("\n") : "- none"}
 Do not second-guess these cashtags. Include them in companies with high confidence.
 
+Existing durable knowledge (do not duplicate or lightly restate):
+${existingKnowledgeBlock(existingKnowledge)}
+
 ${attachedSourcesBlock(attachedSources)}Source note:
 """
 ${rawText}
-"""`;
+"""
+
+candidateInsights / candidateFrameworks: only durable items. Empty arrays are better than weak ones.`;
 }
 
 export const HANDWRITING_PROMPT_VERSION = "interpret-handwriting-v1";
@@ -72,16 +94,25 @@ Return:
 Interpret investment shorthand conservatively. Example: "CART incr marg >> GMV" means incremental margins may matter more than GMV, not a full company model.`;
 }
 
-export const PARSE_IMPORT_PROMPT_VERSION = "parse-ai-import-v1";
+export const PARSE_IMPORT_PROMPT_VERSION = "parse-ai-import-v2";
 
-export function parseImportPrompt(raw: string, existingThemes: string[]): string {
+export function parseImportPrompt(
+  raw: string,
+  existingThemes: string[],
+  existingKnowledge: ExistingKnowledgeLine[] = [],
+): string {
   return `${ANALYST_PREAMBLE}
 
 Distill this pasted research document. Do not summarize conversational sequence or filler.
 Preserve useful intellectual output: topics, companies, themes, learnings, insights, mental models, framings, evidence, counterarguments, questions, follow-ups, and investment implications.
 
+candidateInsights / candidateFrameworks: only durable items. Reject summaries, restated claims, generic advice, one-off facts, and frameworks without a mechanism. Empty arrays are better than weak ones.
+
 Existing themes:
 ${existingThemes.length ? existingThemes.map((theme) => `- ${theme}`).join("\n") : "- none yet"}
+
+Existing durable knowledge:
+${existingKnowledgeBlock(existingKnowledge)}
 
 Document:
 """
@@ -221,11 +252,12 @@ ${input.recent}
 """`;
 }
 
-export const DISCOVER_CONNECTIONS_PROMPT_VERSION = "discover-connections-v1";
+export const DISCOVER_CONNECTIONS_PROMPT_VERSION = "discover-connections-v2";
 
 export function discoverConnectionsPrompt(input: {
   notes: string;
   existingThemes: string[];
+  existingKnowledge?: ExistingKnowledgeLine[];
 }): string {
   return `${ANALYST_PREAMBLE}
 
@@ -233,12 +265,49 @@ Analyze recent notes for latent patterns: recurring concepts, similar observatio
 Do not auto-create a theme unless confidence is very high (autoCreate=true only then).
 Otherwise suggest it for user approval.
 
+connections must cite real note ids from the source dump. Explain the causal/intellectual relationship. Semantic similarity alone is not a connection. If you cannot ground both ends, omit it.
+
+looseEnds must include sourceNoteIds that exist in the dump. Ungrounded loose ends should be omitted.
+
+candidateInsights / candidateFrameworks: only durable items with sourceNoteIds.
+
 Existing themes:
 ${input.existingThemes.map((theme) => `- ${theme}`).join("\n") || "- none"}
+
+Existing durable knowledge:
+${existingKnowledgeBlock(input.existingKnowledge)}
 
 Recent notes:
 """
 ${input.notes}
+"""`;
+}
+
+export const KNOWLEDGE_DISPOSITION_PROMPT_VERSION = "knowledge-disposition-v1";
+
+export function knowledgeDispositionPrompt(input: {
+  candidate: string;
+  existing: string;
+}): string {
+  return `${ANALYST_PREAMBLE}
+
+Decide what to do with this candidate knowledge object relative to existing objects.
+Choose exactly one:
+- new: distinct durable knowledge
+- possible_duplicate: same conclusion or mechanism, not an automatic merge
+- possible_update: likely a later formulation of an existing object
+- possible_evidence: better as support/counterevidence for an existing object
+
+Use existingObjectId only when it appears in the existing list. If nothing fits, decision=new and existingObjectId=null.
+
+Candidate:
+"""
+${input.candidate}
+"""
+
+Existing knowledge:
+"""
+${input.existing}
 """`;
 }
 

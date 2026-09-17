@@ -42,9 +42,55 @@ export const ConnectionDiscoverySchema = z.object({
         "stale_theme",
         "contradiction",
       ]),
+      sourceNoteIds: z.array(z.string()).default([]),
+      sourceDocumentIds: z.array(z.string()).default([]),
     }),
   ),
-  connections: z.array(z.string()),
+  connections: z.array(
+    z.object({
+      fromTitle: z.string(),
+      fromNoteId: z.string().nullable(),
+      toTitle: z.string(),
+      toNoteId: z.string().nullable(),
+      relationType: z.enum([
+        "instance_of",
+        "supports",
+        "contradicts",
+        "extends",
+        "refines",
+        "same_mechanism",
+        "boundary_condition",
+        "related",
+      ]),
+      explanation: z.string(),
+      confidence: z.number().min(0).max(1),
+    }),
+  ),
+  candidateInsights: z
+    .array(
+      z.object({
+        title: z.string(),
+        summary: z.string(),
+        rationale: z.string(),
+        relatedTickers: z.array(z.string()),
+        relatedThemes: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+        sourceNoteIds: z.array(z.string()).default([]),
+      }),
+    )
+    .default([]),
+  candidateFrameworks: z
+    .array(
+      z.object({
+        title: z.string(),
+        formulation: z.string(),
+        mechanism: z.string(),
+        boundaryConditions: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+        sourceNoteIds: z.array(z.string()).default([]),
+      }),
+    )
+    .default([]),
 });
 
 export type ConnectionDiscovery = z.infer<typeof ConnectionDiscoverySchema>;
@@ -85,6 +131,29 @@ export const ParsedImportSchema = z.object({
   questions: z.array(z.string()),
   followUps: z.array(z.string()),
   overallConfidence: z.number().min(0).max(1),
+  candidateInsights: z
+    .array(
+      z.object({
+        title: z.string(),
+        summary: z.string(),
+        rationale: z.string(),
+        relatedTickers: z.array(z.string()),
+        relatedThemes: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .default([]),
+  candidateFrameworks: z
+    .array(
+      z.object({
+        title: z.string(),
+        formulation: z.string(),
+        mechanism: z.string(),
+        boundaryConditions: z.array(z.string()),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .default([]),
 });
 
 export type ParsedImport = z.infer<typeof ParsedImportSchema>;
