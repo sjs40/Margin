@@ -5,7 +5,7 @@ import { RefreshTodayButton } from "@/features/meta-notes/refresh-today-button";
 import { DailyArchiveNav } from "@/features/today/daily-archive-nav";
 import { LooseEnds, mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { CopyContextButton } from "@/features/context/copy-context-button";
-import { formatLongDate, parseDailyKey } from "@/lib/dates";
+import { formatDailyKey } from "@/lib/dates";
 
 type DailyMeta = {
   id: string;
@@ -47,7 +47,7 @@ export function DailyPageView({
       <div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-serif text-3xl">{isToday ? "Today" : formatLongDate(parseDailyKey(date).toISOString())}</h1>
+            <h1 className="font-serif text-3xl">{isToday ? "Today" : formatDailyKey(date)}</h1>
             <div className="mt-2">
               <DailyArchiveNav date={date} previous={previous} next={next} />
             </div>

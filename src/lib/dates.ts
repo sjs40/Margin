@@ -48,17 +48,50 @@ export function endOfDayIso(date = new Date()): string {
   return copy.toISOString();
 }
 
-export function formatCapturedAt(iso: string): string {
+/** Normalize Postgres / PostgREST timestamptz strings so Date keeps the real minute. */
+export function parseTimestamp(value: string): Date {
+  const trimmed = value.trim();
+  if (isValidDailyKey(trimmed)) return parseDailyKey(trimmed);
+  const withT = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
+  const truncatedFraction = withT.replace(/(\.\d{3})\d+/, "$1");
+  const hasZone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(truncatedFraction);
+  const normalized = hasZone ? truncatedFraction : `${truncatedFraction}Z`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid timestamp: ${value}`);
+  }
+  return parsed;
+}
+
+export function formatCapturedAt(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(iso));
+    timeZone,
+  }).format(parseTimestamp(iso));
 }
 
-export function formatLongDate(iso: string): string {
+export function formatLongDate(iso: string, timeZone?: string): string {
+  const daily = isValidDailyKey(iso.trim());
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(iso));
+    timeZone: timeZone ?? (daily ? "UTC" : undefined),
+  }).format(parseTimestamp(iso));
+}
+
+export function formatDateTime(iso: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  }).format(parseTimestamp(iso));
+}
+
+export function formatDailyKey(daily: string): string {
+  return formatLongDate(daily, "UTC");
 }

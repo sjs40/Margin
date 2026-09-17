@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listKnowledgeObjects } from "@/features/knowledge/queries";
 import { CreateKnowledgeForm } from "@/features/knowledge/create-form";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 
 const TABS = [
   { id: "insights", label: "Active Insights" },
@@ -70,7 +70,7 @@ export default async function KnowledgeIndexPage({
                 {row.themes.map((theme) => theme.name).join(", ") || "No themes"}
               </p>
               <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                {row.stats.supportingSources} supporting · {row.stats.counterItems} counter · {row.provenanceCount} provenance · {formatLongDate(row.updated_at)}
+                {row.stats.supportingSources} supporting · {row.stats.counterItems} counter · {row.provenanceCount} provenance · <LocalDate iso={row.updated_at} />
               </p>
             </Link>
           </li>

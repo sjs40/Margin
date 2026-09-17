@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { dailyKey, formatLongDate, parseDailyKey } from "@/lib/dates";
+import { dailyKey, formatDailyKey } from "@/lib/dates";
 
 export function DailyArchiveNav({
   date,
@@ -36,7 +36,7 @@ export function DailyArchiveNav({
       </Link>
       {isToday ? null : (
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          {formatLongDate(parseDailyKey(date).toISOString())}
+          {formatDailyKey(date)}
         </span>
       )}
     </div>

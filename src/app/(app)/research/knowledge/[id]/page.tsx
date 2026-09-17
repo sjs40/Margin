@@ -6,7 +6,7 @@ import { KnowledgeSourceControls, SourceRoleSelect } from "@/features/knowledge/
 import { CopyContextButton } from "@/features/context/copy-context-button";
 import { DevelopAction } from "@/features/context/develop-action";
 import { evidenceStats, sourceHref } from "@/lib/knowledge";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { AcceptRelationButton } from "@/features/knowledge/accept-relation-button";
 import type { KnowledgeSourceRole, KnowledgeSourceType } from "@/types/domain";
 
@@ -98,8 +98,18 @@ export default async function KnowledgeDetailPage({
         {stats.distinctCompanies} companies
         {" · "}
         {stats.counterItems} counterexamples/counterevidence
-        {stats.lastStrengthenedAt ? ` · last strengthened ${formatLongDate(stats.lastStrengthenedAt)}` : ""}
-        {stats.lastChallengedAt ? ` · last challenged ${formatLongDate(stats.lastChallengedAt)}` : ""}
+        {stats.lastStrengthenedAt ? (
+          <>
+            {" · last strengthened "}
+            <LocalDate iso={stats.lastStrengthenedAt} />
+          </>
+        ) : null}
+        {stats.lastChallengedAt ? (
+          <>
+            {" · last challenged "}
+            <LocalDate iso={stats.lastChallengedAt} />
+          </>
+        ) : null}
       </p>
       <div className="mt-6">
         <KnowledgeEditor
@@ -182,7 +192,12 @@ export default async function KnowledgeDetailPage({
           {(versions ?? []).map((version) => (
             <li key={version.id}>
               <span className="font-mono text-[11px]">v{version.version_number}</span>
-              <span className="text-muted-foreground"> · {version.origin} · {formatLongDate(version.created_at)}</span>
+              <span className="text-muted-foreground">
+                {" · "}
+                {version.origin}
+                {" · "}
+                <LocalDate iso={version.created_at} />
+              </span>
               <p>{version.change_summary}</p>
             </li>
           ))}

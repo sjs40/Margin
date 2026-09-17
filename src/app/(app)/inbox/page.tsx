@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InboxActions } from "@/features/inbox/inbox-actions";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { findSimilarTheme } from "@/lib/theme-resolution";
 import { asAliasList } from "@/lib/tickers";
 
@@ -91,7 +91,7 @@ function ClaimLine({ label, claim }: { label: string; claim?: ClaimSnippet }) {
       </span>
       {claim.date ? (
         <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-          {formatLongDate(claim.date)}
+          <LocalDate iso={claim.date} />
         </span>
       ) : null}
       <span className="mt-1 block">{claim.text}</span>

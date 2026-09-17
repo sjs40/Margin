@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Markdown } from "@/components/markdown";
 import { ProcessingBadge } from "@/components/processing-badge";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDateTime } from "@/components/local-datetime";
 import { RetryNoteButton } from "@/features/notes/retry-button";
 import { SourceCards } from "@/features/links/source-card";
 import { LinkifiedText } from "@/components/linkified-text";
@@ -61,7 +61,7 @@ export default async function NotePage({
   return (
     <div className="mx-auto max-w-3xl">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-        {formatLongDate(note.captured_at)} · {note.source_type.replace("_", " ")}
+        <LocalDateTime iso={note.captured_at} /> · {note.source_type.replace("_", " ")}
       </p>
       <h1 className="mt-2 font-serif text-3xl leading-tight md:text-3xl">{note.title || "Note"}</h1>
       <div className="mt-3 flex items-center gap-3">

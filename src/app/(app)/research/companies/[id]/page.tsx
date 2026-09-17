@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MetaNoteEditor } from "@/features/meta-notes/meta-note-editor";
 import { MetaNoteHistory } from "@/features/meta-notes/meta-note-history";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { ClaimsSection, type CompanyClaim } from "@/features/research/claims-section";
 import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
@@ -170,7 +170,7 @@ export default async function CompanyPage({
             <li key={note.id}>
               <Link href={`/notes/${note.id}`} className="block">
                 <p className="font-mono text-[11px] text-muted-foreground">
-                  {formatLongDate(note.captured_at)}
+                  <LocalDate iso={note.captured_at} />
                   {note.price_at_capture != null && entity.ticker
                     ? ` · ${formatTickerPrice(entity.ticker, Number(note.price_at_capture))}`
                     : ""}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { excerptText, formatLongDate, formatMonthHeading } from "@/lib/dates";
+import { excerptText, formatDailyKey, formatMonthHeading } from "@/lib/dates";
+import { LocalDateTime } from "@/components/local-datetime";
 import { groupArchiveByMonth } from "@/lib/daily-archive";
 
 export default async function TodayArchivePage() {
@@ -56,12 +57,12 @@ export default async function TodayArchivePage() {
                       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                         {item.date}
                       </p>
-                      <p className="mt-1">{item.title || formatLongDate(`${item.date}T12:00:00.000Z`)}</p>
+                      <p className="mt-1">{item.title || formatDailyKey(item.date)}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {excerptText(item.current_content)}
                       </p>
                       <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-                        Updated {formatLongDate(item.updated_at)}
+                        Updated <LocalDateTime iso={item.updated_at} />
                       </p>
                     </Link>
                   </li>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatLongDate } from "@/lib/dates";
+import { LocalDate } from "@/components/local-datetime";
 import { splitCitedAnswer } from "@/lib/ask-citations";
 
 export type AskSource = {
@@ -46,7 +46,11 @@ function CitationChip({ source }: { source: AskSource }) {
       </TooltipTrigger>
       <TooltipContent className="max-w-xs text-left">
         <p className="font-medium">{source.title}</p>
-        {source.date ? <p className="mt-1 opacity-80">{formatLongDate(source.date)}</p> : null}
+        {source.date ? (
+          <p className="mt-1 opacity-80">
+            <LocalDate iso={source.date} />
+          </p>
+        ) : null}
         {source.snippet ? <p className="mt-1 opacity-80">{source.snippet}</p> : null}
       </TooltipContent>
     </Tooltip>
