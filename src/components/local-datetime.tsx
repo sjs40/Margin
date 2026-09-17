@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { formatCapturedAt, formatDateTime, formatLongDate } from "@/lib/dates";
 
 type FormatKind = "time" | "date" | "datetime";
@@ -20,11 +20,16 @@ function formatLabel(kind: FormatKind, iso: string): string {
   }
 }
 
+function subscribe() {
+  return () => {};
+}
+
 function LocalInstant({ iso, kind }: { iso: string; kind: FormatKind }) {
-  const [label, setLabel] = useState("");
-  useEffect(() => {
-    setLabel(formatLabel(kind, iso));
-  }, [iso, kind]);
+  const label = useSyncExternalStore(
+    subscribe,
+    () => formatLabel(kind, iso),
+    () => "",
+  );
   return <time dateTime={iso}>{label}</time>;
 }
 
