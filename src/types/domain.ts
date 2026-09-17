@@ -37,7 +37,44 @@ export type InboxCategory =
   | "ambiguous_entity"
   | "processing_failed"
   | "suggested_theme"
-  | "contradiction";
+  | "contradiction"
+  | "loose_end";
+
+export type KnowledgeKind = "insight" | "framework";
+export type KnowledgeState = "proposed" | "active" | "archived" | "merged";
+export type KnowledgeMaturity = "emerging" | "developing" | "well_supported" | "challenged";
+export type KnowledgeOrigin = "user" | "ai" | "develop" | "import" | "backfill";
+export type KnowledgeVersionOrigin = KnowledgeOrigin | "merge";
+export type KnowledgeSourceType = "note" | "document" | "meta_note" | "claim" | "knowledge_object";
+export type KnowledgeSourceRole =
+  | "origin"
+  | "support"
+  | "counterevidence"
+  | "example"
+  | "counterexample"
+  | "boundary_condition";
+export type KnowledgeRelationType =
+  | "instance_of"
+  | "supports"
+  | "contradicts"
+  | "extends"
+  | "refines"
+  | "same_mechanism"
+  | "boundary_condition"
+  | "related";
+export type KnowledgeRelationState = "proposed" | "accepted" | "rejected";
+export type ContextPackSize = "compact" | "standard" | "deep";
+export type ContextPackSeedType =
+  | "note"
+  | "document"
+  | "meta_note"
+  | "company"
+  | "theme"
+  | "insight"
+  | "framework"
+  | "question"
+  | "followup";
+export type EmbeddingSourceType = "note" | "document" | "meta_note" | "knowledge_object";
 
 export type LinkFetchStatus = "pending" | "ready" | "failed";
 
@@ -120,6 +157,7 @@ export type MetaNote = {
   title: string;
   current_content: string;
   user_edited: boolean;
+  needs_refresh?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -135,4 +173,48 @@ export type InboxItem = {
   payload: Record<string, unknown>;
   status: "open" | "resolved" | "dismissed";
   created_at: string;
+};
+
+export type KnowledgeObject = {
+  id: string;
+  user_id: string;
+  kind: KnowledgeKind;
+  title: string;
+  summary: string;
+  body: string;
+  state: KnowledgeState;
+  maturity: KnowledgeMaturity | null;
+  origin: KnowledgeOrigin;
+  user_edited: boolean;
+  merged_into_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeObjectSource = {
+  id: string;
+  user_id: string;
+  knowledge_object_id: string;
+  source_type: KnowledgeSourceType;
+  source_id: string;
+  role: KnowledgeSourceRole;
+  excerpt: string | null;
+  rationale: string | null;
+  confidence: number | null;
+  created_by: "user" | "ai";
+  created_at: string;
+};
+
+export type KnowledgeRelationship = {
+  id: string;
+  user_id: string;
+  from_object_id: string;
+  to_object_id: string;
+  relation_type: KnowledgeRelationType;
+  explanation: string;
+  confidence: number | null;
+  state: KnowledgeRelationState;
+  created_by: "user" | "ai";
+  created_at: string;
+  updated_at: string;
 };

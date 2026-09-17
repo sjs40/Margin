@@ -20,14 +20,21 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `claims` | Extracted claims with type + confidence + `status` (`active`, `superseded`, `contradicted`, `retracted`) |
 | `claim_relations` | AI/user links between claims (`contradicts`, `supersedes`, `supports`) with confirmation state |
 | `user_settings` | Per-user pipeline knobs (contradiction detection). Missing row means defaults. |
-| `questions` | Open / resolved / dismissed, with `resolution_comment`, `resolved_by_note_id`, `entity_id`, `theme_id`, `source` |
-| `followups` | Lightweight follow-ups with the same resolution fields as questions |
+| `questions` | Open / deferred / resolved / dismissed, with `resolution_comment`, `resolved_by_note_id`, `entity_id`, `theme_id`, `source`. `note_id` / `document_id` are origin, not resolution. |
+| `followups` | Lightweight follow-ups with the same resolution fields as questions, including `deferred` |
 | `meta_notes` | Daily, company, and theme memory. `user_edited` is set when the owner saves the page. `needs_refresh` is set by theme merge and cleared when synthesis runs. |
 | `meta_note_versions` | Historical evolution, including user edits |
 | `note_annotations` | Nested comments on a note (not parsed as new notes) |
 | `ai_jobs` | Processing ledger |
 | `embeddings` | pgvector retrieval records |
-| `inbox_items` | Ambiguity, failures, suggested themes |
+| `inbox_items` | Ambiguity, failures, suggested themes, deferred Loose Ends |
+| `knowledge_objects` | Durable insights and frameworks |
+| `knowledge_object_versions` | Snapshots of user edits, accepted AI updates, merges, import outcomes |
+| `knowledge_object_sources` | Provenance/evidence edges to notes, documents, meta notes, claims, or other knowledge objects |
+| `knowledge_object_entities` / `knowledge_object_themes` | Company and theme links |
+| `knowledge_relationships` | Typed relationships between knowledge objects |
+| `context_packs` | Copy Context snapshots (selection + markdown) |
+| `knowledge_backfill_runs` | Idempotent backfill checkpoints |
 | `note_links` | URLs pasted into a note, plus fetched title/excerpt |
 
 ## Notes extras
@@ -40,7 +47,7 @@ Owner policies use `user_id = auth.uid()` (or a join to the owning note/document
 
 ## Retrieval RPC
 
-`match_embeddings(query_embedding, match_user_id, match_count)` returns cosine similarity for hybrid search.
+`match_embeddings(query_embedding, match_user_id, match_count)` returns cosine similarity for hybrid search. `embeddings.source_type` includes `note`, `document`, `meta_note`, and `knowledge_object`.
 
 Company lookup RPCs (authenticated + service role): `lookup_company(q)`, `search_companies(q, lim)`, `search_companies_by_name(q)`.
 
