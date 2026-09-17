@@ -6,6 +6,7 @@ import { LooseEnds, mapFollowup, mapQuestion } from "@/features/research/loose-e
 import { startOfDayIso } from "@/lib/dates";
 import { dailyKey } from "@/lib/dates";
 import type { FeedNote } from "@/features/notes/note-feed";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function TodayPage() {
   const supabase = await createClient();
@@ -29,14 +30,14 @@ export default async function TodayPage() {
         .maybeSingle(),
       supabase
         .from("questions")
-        .select("*")
+        .select(LOOSE_END_SELECT)
         .eq("user_id", auth.user.id)
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(8),
       supabase
         .from("followups")
-        .select("*")
+        .select(LOOSE_END_SELECT)
         .eq("user_id", auth.user.id)
         .eq("status", "open")
         .order("created_at", { ascending: false })

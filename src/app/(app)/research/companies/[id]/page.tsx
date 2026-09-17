@@ -10,6 +10,7 @@ import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
 import { fetchQuote } from "@/lib/prices/provider";
 import { formatQuotePrice, formatTickerPrice, percentChange } from "@/lib/prices/format";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function CompanyPage({
   params,
@@ -85,13 +86,13 @@ export default async function CompanyPage({
 
   const { data: openQuestions } = await supabase
     .from("questions")
-    .select("*")
+    .select(LOOSE_END_SELECT)
     .eq("entity_id", id)
     .eq("status", "open")
     .order("created_at", { ascending: false });
   const { data: openFollowups } = await supabase
     .from("followups")
-    .select("*")
+    .select(LOOSE_END_SELECT)
     .eq("entity_id", id)
     .eq("status", "open")
     .order("created_at", { ascending: false });

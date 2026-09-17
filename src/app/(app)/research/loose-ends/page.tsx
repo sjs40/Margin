@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LooseEndRow, AddLooseEnd } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function LooseEndsPage({
   searchParams,
@@ -15,12 +16,12 @@ export default async function LooseEndsPage({
 
   let questionsQuery = supabase
     .from("questions")
-    .select("*, notes:resolved_by_note_id(title)")
+    .select(LOOSE_END_SELECT)
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
   let followupsQuery = supabase
     .from("followups")
-    .select("*, notes:resolved_by_note_id(title)")
+    .select(LOOSE_END_SELECT)
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
@@ -100,32 +101,12 @@ export default async function LooseEndsPage({
         </button>
       </form>
       <ul className="mt-8 space-y-6">
-        {(questions ?? []).map((row) => {
-          const note = Array.isArray(row.notes) ? row.notes[0] : row.notes;
-          return (
-            <LooseEndRow
-              key={row.id}
-              allowNotePicker
-              item={{
-                ...mapQuestion(row),
-                resolving_note_title: note?.title ?? null,
-              }}
-            />
-          );
-        })}
-        {(followups ?? []).map((row) => {
-          const note = Array.isArray(row.notes) ? row.notes[0] : row.notes;
-          return (
-            <LooseEndRow
-              key={row.id}
-              allowNotePicker
-              item={{
-                ...mapFollowup(row),
-                resolving_note_title: note?.title ?? null,
-              }}
-            />
-          );
-        })}
+        {(questions ?? []).map((row) => (
+          <LooseEndRow key={row.id} allowNotePicker item={mapQuestion(row)} />
+        ))}
+        {(followups ?? []).map((row) => (
+          <LooseEndRow key={row.id} allowNotePicker item={mapFollowup(row)} />
+        ))}
       </ul>
       {(questions ?? []).length === 0 && (followups ?? []).length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">Nothing in this tab.</p>

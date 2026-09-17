@@ -7,6 +7,7 @@ import { LooseEndRow } from "@/features/research/loose-end-row";
 import { mapFollowup, mapQuestion } from "@/features/research/loose-ends";
 import { ExportLink } from "@/features/export/export-link";
 import { MergeThemeControl } from "@/features/research/merge-theme-control";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function ThemePage({
   params,
@@ -52,12 +53,12 @@ export default async function ThemePage({
     .order("name");
   const { data: openQuestions } = await supabase
     .from("questions")
-    .select("*")
+    .select(LOOSE_END_SELECT)
     .eq("theme_id", id)
     .eq("status", "open");
   const { data: openFollowups } = await supabase
     .from("followups")
-    .select("*")
+    .select(LOOSE_END_SELECT)
     .eq("theme_id", id)
     .eq("status", "open");
 
