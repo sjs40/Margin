@@ -20,14 +20,14 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `claims` | Extracted claims with type + confidence + `status` (`active`, `superseded`, `contradicted`, `retracted`) |
 | `claim_relations` | AI/user links between claims (`contradicts`, `supersedes`, `supports`) with confirmation state |
 | `user_settings` | Per-user pipeline knobs (contradiction detection). Missing row means defaults. |
-| `questions` | Open / deferred / resolved / dismissed, with `resolution_comment`, `resolved_by_note_id`, `entity_id`, `theme_id`, `source`. `note_id` / `document_id` are origin, not resolution. |
-| `followups` | Lightweight follow-ups with the same resolution fields as questions, including `deferred` |
+| `questions` | Open / deferred / resolved / dismissed, with `resolution_comment`, `resolved_by_note_id`, `entity_id`, `theme_id`, `source`. `note_id` / `document_id` are origin, not resolution. Deferred items live in Inbox. |
+| `followups` | Lightweight follow-ups: open / deferred / completed / dismissed, with the same resolution fields as questions |
 | `meta_notes` | Daily, company, and theme memory. `user_edited` is set when the owner saves the page. `needs_refresh` is set by theme merge and cleared when synthesis runs. |
 | `meta_note_versions` | Historical evolution, including user edits |
 | `note_annotations` | Nested comments on a note (not parsed as new notes) |
 | `ai_jobs` | Processing ledger |
 | `embeddings` | pgvector retrieval records |
-| `inbox_items` | Ambiguity, failures, suggested themes, deferred Loose Ends |
+| `inbox_items` | Ambiguity, failures, suggested themes, and deferred Loose Ends (`category = loose_end`) |
 | `knowledge_objects` | Durable insights and frameworks |
 | `knowledge_object_versions` | Snapshots of user edits, accepted AI updates, merges, import outcomes |
 | `knowledge_object_sources` | Provenance/evidence edges to notes, documents, meta notes, claims, or other knowledge objects |

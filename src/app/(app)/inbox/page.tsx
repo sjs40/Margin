@@ -2,8 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InboxActions } from "@/features/inbox/inbox-actions";
 import { LocalDate } from "@/components/local-datetime";
+import { LooseEndInboxActions } from "@/features/inbox/loose-end-inbox-actions";
+import { LooseEndSourceLine } from "@/features/research/loose-end-row";
 import { findSimilarTheme } from "@/lib/theme-resolution";
 import { asAliasList } from "@/lib/tickers";
+import { looseEndInboxCardModel, type LooseEndInboxPayload } from "@/lib/loose-ends";
 
 type ClaimSnippet = {
   id?: string;
@@ -39,7 +42,7 @@ export default async function InboxPage() {
             newClaim?: ClaimSnippet;
             name?: string;
             similarThemeId?: string;
-          };
+          } & Partial<LooseEndInboxPayload>;
           const similar =
             item.category === "suggested_theme"
               ? findSimilarTheme(String(payload.name ?? ""), (themes ?? []).map((theme) => ({
@@ -47,30 +50,50 @@ export default async function InboxPage() {
                   aliases: asAliasList(theme.aliases),
                 })))
               : null;
+          const looseEndCard =
+            item.category === "loose_end"
+              ? looseEndInboxCardModel({ title: item.title, payload })
+              : null;
           const body =
             item.category === "suggested_theme" && similar
               ? `Similar to existing theme: ${similar.name}`
-              : item.body;
+              : looseEndCard
+                ? null
+                : item.body;
           return (
             <li key={item.id} className="py-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                {item.category.replace("_", " ")}
+                {looseEndCard ? looseEndCard.kindLabel : item.category.replace("_", " ")}
               </p>
-              <p className="mt-1 font-medium">{item.title}</p>
+              <p className="mt-1 font-medium">{looseEndCard?.text ?? item.title}</p>
               {body ? <p className="mt-1 text-sm text-muted-foreground">{body}</p> : null}
+              {looseEndCard ? (
+                <LooseEndSourceLine
+                  item={{
+                    entity_label: looseEndCard.entityLabel,
+                    theme_name: looseEndCard.themeName,
+                    source_title: looseEndCard.sourceTitle,
+                    source_href: looseEndCard.sourceHref,
+                  }}
+                />
+              ) : null}
               {item.category === "contradiction" ? (
                 <div className="mt-3 space-y-2 rounded-lg border border-border p-3 text-sm">
                   <ClaimLine label="Prior" claim={payload.priorClaim} />
                   <ClaimLine label="New" claim={payload.newClaim} />
                 </div>
               ) : null}
-              <InboxActions
-                item={{
-                  ...item,
-                  payload: { ...payload, similarThemeId: similar?.id ?? payload.similarThemeId },
-                }}
-                themes={(themes ?? []).map((theme) => ({ id: theme.id, name: theme.name }))}
-              />
+              {looseEndCard ? (
+                <LooseEndInboxActions inboxItemId={item.id} kind={looseEndCard.kind} />
+              ) : (
+                <InboxActions
+                  item={{
+                    ...item,
+                    payload: { ...payload, similarThemeId: similar?.id ?? payload.similarThemeId },
+                  }}
+                  themes={(themes ?? []).map((theme) => ({ id: theme.id, name: theme.name }))}
+                />
+              )}
             </li>
           );
         })}

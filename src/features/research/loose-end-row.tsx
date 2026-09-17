@@ -1,30 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createLooseEnd, searchRecentNotes, sendLooseEndToInbox, updateLooseEnd, type LooseEndKind } from "@/features/research/actions";
+  createLooseEnd,
+  searchRecentNotes,
+  sendLooseEndToInbox,
+  updateLooseEnd,
+  type LooseEndKind,
+} from "@/features/research/actions";
 import { CopyContextButton } from "@/features/context/copy-context-button";
+import { navigableLooseEndSourceHref, type LooseEndView } from "@/lib/loose-ends";
 
-export type LooseEndView = {
-  id: string;
-  kind: LooseEndKind;
-  text: string;
-  status: string;
-  resolution_comment: string | null;
-  resolved_by_note_id: string | null;
-  note_id: string | null;
-  document_id?: string | null;
-  resolving_note_title?: string | null;
-};
+export type { LooseEndView };
 
 export function LooseEndRow({
   item,
@@ -35,12 +27,15 @@ export function LooseEndRow({
   contextNoteId?: string | null;
   allowNotePicker?: boolean;
 }) {
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [form, setForm] = useState<"resolve" | "dismiss" | "comment" | null>(null);
   const [comment, setComment] = useState(item.resolution_comment ?? "");
   const [noteQuery, setNoteQuery] = useState("");
   const [noteHits, setNoteHits] = useState<Array<{ id: string; title: string | null }>>([]);
   const [pickedNoteId, setPickedNoteId] = useState<string | null>(contextNoteId ?? null);
   const [error, setError] = useState<string | null>(null);
+  const sourceHref = navigableLooseEndSourceHref(item.source_href, pathname);
 
   async function save(status: "resolved" | "dismissed" | "open") {
     setError(null);
@@ -58,29 +53,54 @@ export function LooseEndRow({
     window.location.reload();
   }
 
+  async function sendToInbox() {
+    setError(null);
+    setMenuOpen(false);
+    const result = await sendLooseEndToInbox({ id: item.id, kind: item.kind });
+    if ("error" in result && result.error) {
+      setError(result.error);
+      return;
+    }
+    window.location.reload();
+  }
+
+  function openForm(next: "resolve" | "dismiss" | "comment") {
+    setMenuOpen(false);
+    setForm(next);
+  }
+
+  const body = (
+    <>
+      <span className="block">{item.text}</span>
+      <LooseEndSourceLine item={item} linked={false} />
+    </>
+  );
+
   return (
     <li className="text-sm leading-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             {item.kind === "question" ? "Question" : "Follow-up"}
           </span>
-          <p className="mt-1">{item.text}</p>
+          {sourceHref ? (
+            <Link
+              href={sourceHref}
+              className="mt-1 block min-h-11 rounded-md py-2 hover:bg-secondary/40"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div className="mt-1">{body}</div>
+          )}
           {item.resolution_comment ? (
             <p className="mt-1 text-muted-foreground">Why: {item.resolution_comment}</p>
           ) : null}
-          {item.note_id ? (
-            <Link href={`/notes/${item.note_id}`} className="mt-1 block text-[11px] underline">
-              Originating note
-            </Link>
-          ) : null}
-          {item.document_id ? (
-            <Link href={`/documents/${item.document_id}`} className="mt-1 block text-[11px] underline">
-              Originating document
-            </Link>
-          ) : null}
           {item.resolved_by_note_id ? (
-            <Link href={`/notes/${item.resolved_by_note_id}`} className="text-[11px] underline">
+            <Link
+              href={`/notes/${item.resolved_by_note_id}`}
+              className="inline-flex min-h-11 items-center text-sm underline"
+            >
               {item.resolving_note_title || "Resolving note"}
             </Link>
           ) : null}
@@ -88,28 +108,50 @@ export function LooseEndRow({
             <CopyContextButton seedType={item.kind} seedId={item.id} />
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="min-h-11 shrink-0 rounded-md border border-border px-2.5 text-sm md:h-8 md:min-h-8">
-            Actions
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => setForm("resolve")}>
-              {item.kind === "followup" ? "Complete" : "Resolve"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setForm("dismiss")}>Dismiss</DropdownMenuItem>
-            {item.status === "open" ? (
-              <DropdownMenuItem
-                onSelect={() => {
-                  void sendLooseEndToInbox({ id: item.id, kind: item.kind }).then(() => window.location.reload());
-                }}
-              >
-                Send to Inbox
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onSelect={() => setForm("comment")}>Add response</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 shrink-0 md:h-8 md:min-h-8"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          Actions
+        </Button>
       </div>
+      {menuOpen ? (
+        <div className="mt-2 overflow-hidden rounded-lg border border-border">
+          <button
+            type="button"
+            className="block min-h-11 w-full px-3 text-left text-sm hover:bg-secondary/40"
+            onClick={() => openForm("resolve")}
+          >
+            {item.kind === "followup" ? "Complete" : "Resolve"}
+          </button>
+          {item.status === "open" ? (
+            <button
+              type="button"
+              className="block min-h-11 w-full border-t border-border px-3 text-left text-sm hover:bg-secondary/40"
+              onClick={() => void sendToInbox()}
+            >
+              Send to Inbox
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="block min-h-11 w-full border-t border-border px-3 text-left text-sm hover:bg-secondary/40"
+            onClick={() => openForm("dismiss")}
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            className="block min-h-11 w-full border-t border-border px-3 text-left text-sm hover:bg-secondary/40"
+            onClick={() => openForm("comment")}
+          >
+            Add response
+          </button>
+        </div>
+      ) : null}
       {form ? (
         <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
           <label className="text-sm text-muted-foreground" htmlFor={`why-${item.id}`}>
@@ -138,7 +180,7 @@ export function LooseEndRow({
                     <li key={note.id}>
                       <button
                         type="button"
-                        className="block w-full px-2 py-2 text-left text-sm"
+                        className="block min-h-11 w-full px-2 py-2 text-left text-sm"
                         onClick={() => {
                           setPickedNoteId(note.id);
                           setNoteQuery(note.title ?? note.id);
@@ -166,9 +208,50 @@ export function LooseEndRow({
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
+      ) : error ? (
+        <p className="mt-2 text-sm text-destructive">{error}</p>
       ) : null}
     </li>
   );
+}
+
+export function LooseEndSourceLine({
+  item,
+  linked = true,
+}: {
+  item: Pick<LooseEndView, "entity_label" | "theme_name" | "source_title" | "source_href">;
+  linked?: boolean;
+}) {
+  const pathname = usePathname();
+  const href = linked ? navigableLooseEndSourceHref(item.source_href, pathname) : null;
+  const parts: Array<{ key: string; node: ReactNode }> = [];
+  if (item.entity_label) parts.push({ key: "entity", node: item.entity_label });
+  if (item.theme_name) parts.push({ key: "theme", node: item.theme_name });
+  if (item.source_title) parts.push({ key: "source", node: item.source_title });
+  if (parts.length === 0) return null;
+  const line = (
+    <>
+      From:{" "}
+      {parts.map((part, index) => (
+        <span key={part.key}>
+          {index > 0 ? " / " : null}
+          {part.node}
+        </span>
+      ))}
+      {" →"}
+    </>
+  );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="mt-1 inline-flex min-h-11 items-center text-sm text-muted-foreground underline"
+      >
+        {line}
+      </Link>
+    );
+  }
+  return <span className="mt-1 block text-sm text-muted-foreground">{line}</span>;
 }
 
 export function AddLooseEnd({

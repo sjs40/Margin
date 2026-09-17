@@ -15,6 +15,7 @@ import { ExportLink } from "@/features/export/export-link";
 import { CopyContextButton } from "@/features/context/copy-context-button";
 import { DevelopAction } from "@/features/context/develop-action";
 import type { NoteLink, ProcessingStatus } from "@/types/domain";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export default async function NotePage({
   params,
@@ -32,8 +33,8 @@ export default async function NotePage({
         .select("confidence, price_at_capture, entities(id, ticker, canonical_name)")
         .eq("note_id", id),
       supabase.from("note_themes").select("confidence, themes(id, name)").eq("note_id", id),
-      supabase.from("questions").select("*").eq("note_id", id),
-      supabase.from("followups").select("*").eq("note_id", id),
+      supabase.from("questions").select(LOOSE_END_SELECT).eq("note_id", id),
+      supabase.from("followups").select(LOOSE_END_SELECT).eq("note_id", id),
       supabase.from("claims").select("*").eq("note_id", id),
       supabase.from("note_links").select("*").eq("note_id", id).order("created_at", { ascending: true }),
       supabase

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dailyKey, endOfDayIso, parseDailyKey, startOfDayIso } from "@/lib/dates";
 import { neighboringDailyKeys } from "@/lib/daily-archive";
 import type { FeedNote } from "@/features/notes/note-feed";
+import { LOOSE_END_SELECT } from "@/lib/loose-ends";
 
 export async function loadDailyPage(date: string) {
   const supabase = await createClient();
@@ -36,7 +37,7 @@ export async function loadDailyPage(date: string) {
     isToday
       ? supabase
           .from("questions")
-          .select("*")
+          .select(LOOSE_END_SELECT)
           .eq("user_id", auth.user.id)
           .eq("status", "open")
           .order("created_at", { ascending: false })
@@ -45,7 +46,7 @@ export async function loadDailyPage(date: string) {
     isToday
       ? supabase
           .from("followups")
-          .select("*")
+          .select(LOOSE_END_SELECT)
           .eq("user_id", auth.user.id)
           .eq("status", "open")
           .order("created_at", { ascending: false })

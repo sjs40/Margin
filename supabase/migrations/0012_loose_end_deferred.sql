@@ -1,5 +1,6 @@
--- Deferred Loose Ends and a pointer-only Inbox category.
--- Canonical state stays on questions/followups; Inbox does not duplicate the text.
+-- Deferred Loose Ends live in Inbox instead of the active queue.
+-- Questions: open | deferred | resolved | dismissed
+-- Follow-ups: open | deferred | completed | dismissed
 
 alter table public.questions
   drop constraint if exists questions_status_check;
@@ -31,4 +32,4 @@ alter table public.inbox_items
 
 create unique index if not exists inbox_items_open_loose_end_unique
   on public.inbox_items (user_id, object_type, object_id)
-  where category = 'loose_end' and status = 'open';
+  where status = 'open' and category = 'loose_end';
