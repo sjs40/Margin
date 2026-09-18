@@ -10,9 +10,9 @@ Postgres on Supabase. UUID primary keys. `user_id` on user-owned rows.
 | `user_ai_keys` | Encrypted per-user Gemini keys (service-role only) |
 | `app_settings` | Hosted-AI flag and daily limit |
 | `ai_daily_usage` | Hosted trial action counts per user per UTC day |
-| `notes` | Captures. `original_raw_text` is immutable after insert; `raw_text` may be edited |
+| `notes` | Captures of any length from Capture. `original_raw_text` is immutable after insert; `raw_text` may be edited. `source_type` is `typed`, `dictated`, or `handwritten_image` (`longform` rows were remapped to `typed` in 0014). |
 | `source_assets` | Handwritten images (and future audio/attachments) |
-| `documents` | Long-form and AI imports |
+| `documents` | Imported research and AI session documents (`document_type`: `longform`, `ai_research_session`, `research_session`). Not mixed into Today. |
 | `entities` | Shared companies/people/industries. Companies include `cik`, `source` (`sec` \| `user`), `aliases`, `last_synced_at`. Unique on `upper(ticker)` for companies. |
 | `note_entities` / `document_entities` | Relationships. `note_entities` also stores `price_at_capture`, `price_currency`, `price_as_of`, `price_provider` |
 | `themes` | User-specific themes. `aliases` holds merged names; `merged_into_theme_id` points at the surviving theme after a merge. Archived merged themes redirect. |

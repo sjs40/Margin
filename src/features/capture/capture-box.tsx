@@ -91,7 +91,7 @@ export function CaptureBox({ initialValue = "" }: { initialValue?: string }) {
     if (!text) return;
     setError(null);
     setSyncing(true);
-    const result = await createTextNote(text, text.length > 800 ? "longform" : "typed");
+    const result = await createTextNote(text);
     setSyncing(false);
     if ("error" in result && result.error) {
       setError(result.error);
