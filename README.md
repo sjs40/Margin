@@ -45,6 +45,7 @@ Never commit `.env.local`.
 - `supabase/migrations/0011_merge_themes_disambiguate.sql`
 - `supabase/migrations/0012_loose_end_deferred.sql`
 - `supabase/migrations/0013_knowledge_objects.sql`
+- `supabase/migrations/0014_typed_capture_notes.sql`
 
 The company universe is loaded from the SEC ticker file (nightly, at most weekly, or via `/admin`). `supabase/seed.sql` no longer inserts sample tickers.
 
@@ -69,7 +70,7 @@ npm run typecheck
 npm run lint
 ```
 
-Playwright (`npm run test:e2e`) checks the login gate. Authenticated capture, Daily Archive, Knowledge, Copy Context, and Return-to-Margin review flows need a live Supabase project with migrations 0012 and 0013 applied.
+Playwright (`npm run test:e2e`) checks the login gate. Authenticated capture, Daily Archive, Knowledge, Copy Context, and Return-to-Margin review flows need a live Supabase project with migrations 0012–0014 applied.
 
 ## Docs
 

@@ -13,7 +13,7 @@ import { parseDailyKey } from "@/lib/dates";
 import { withUserAi } from "@/lib/ai-credentials";
 import { saveMetaNoteEdit } from "@/features/meta-notes/actions";
 
-export async function createTextNote(rawText: string, sourceType: "typed" | "dictated" | "longform" = "typed") {
+export async function createTextNote(rawText: string, sourceType: "typed" | "dictated" = "typed") {
   const text = rawText.trim();
   if (!text) return { error: "Note is empty." };
   const { supabase, user } = await requireUser();
@@ -26,7 +26,7 @@ export async function createTextNote(rawText: string, sourceType: "typed" | "dic
       raw_text: text,
       original_raw_text: text,
       processing_status: "pending",
-      note_kind: text.length > 800 ? "thinking" : "quick",
+      note_kind: "quick",
     })
     .select("*")
     .single();
